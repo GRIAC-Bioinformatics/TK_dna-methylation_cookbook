@@ -44,14 +44,15 @@ This repository contains scripts for performing quality control (QC) steps on DN
 
 ### Running the Scripts
 
-Depending on the size of the dataset you might need to run the scripts on HPC usong batch jobs. For more info about how to do this on nibbler visit this [link]https://docs.gcc.rug.nl/nibbler/analysis/
+Depending on the size of the dataset you might need to run the scripts on HPC usong batch jobs. For more info about how to do this on nibbler visit this link: https://docs.gcc.rug.nl/nibbler/analysis/
 
 ## References: 
 
- - Agata Smialowska DNA Methylation: Array Workflow: [link]https://nbis-workshop-epigenomics.readthedocs.io/en/latest/content/tutorials/methylationArray/Array_Tutorial.html#normalization
- - Jovana Maksimovic pipeline: [link]https://bioconductor.org/packages/release/workflows/vignettes/methylationArrayAnalysis/inst/doc/methylationArrayAnalysis.html#quality-control
- - FOXO pipeline: [link]https://life-epigenetics-methylprep.readthedocs-hosted.com/en/latest/docs/introduction/introduction.html#introduction
- - Noramalization benchmark paper: [link]https://clinicalepigeneticsjournal.biomedcentral.com/articles/10.1186/s13148-023-01459-z
+ - Agata Smialowska DNA Methylation: Array Workflow: https://nbis-workshop-epigenomics.readthedocs.io/en/latest/content/tutorials/methylationArray/Array_Tutorial.html#normalization
+ - Jovana Maksimovic pipeline: https://bioconductor.org/packages/release/workflows/vignettes/methylationArrayAnalysis/inst/doc/methylationArrayAnalysis.html#quality-control
+ - FOXO pipeline: https://life-epigenetics-methylprep.readthedocs-hosted.com/en/latest/docs/introduction/introduction.html#introduction
+ - Noramalization benchmark paper: https://clinicalepigeneticsjournal.biomedcentral.com/articles/10.1186/s13148-023-01459-z
+ - Illumina - Leveraging Hidden Information to Correct for Background Fluorescence with Kim Siegmund: https://www.youtube.com/watch?v=_IWhwXnAAls
 
 
 ## Contact
