@@ -2,7 +2,7 @@
 
 ## Overview
 
-This repository contains scripts for performing quality control (QC) steps on DNA methylation array data (e.g., Illumina 450K or EPIC array). The pipeline includes key steps such as data preprocessing, sample level QC and probe-level QC.
+This repository contains scripts for performing quality control (QC) steps on DNA methylation array data (e.g., Illumina 450K or EPIC or EPIC V2 array). The pipeline includes key steps such as data preprocessing, sample level QC and probe-level QC.
 
 ## Repository Structure
 
@@ -40,11 +40,20 @@ This repository contains scripts for performing quality control (QC) steps on DN
 
 - R (version 4.0 or later recommended)
 - Required R packages: `minfi`, `tidyverse`, `ENmix`, `wateRmelon`
+- Depending on the array version you need to use different manifest and annotation files 
 
 ### Running the Scripts
 
-Depending on the size of the dataset you might need to run the scripts on HPC usong batch jobs. For more info visit this [link] https://docs.gcc.rug.nl/nibbler/analysis/
+Depending on the size of the dataset you might need to run the scripts on HPC usong batch jobs. For more info about how to do this on nibbler visit this [link]https://docs.gcc.rug.nl/nibbler/analysis/
+
+## References: 
+
+ - Agata Smialowska DNA Methylation: Array Workflow: [link]https://nbis-workshop-epigenomics.readthedocs.io/en/latest/content/tutorials/methylationArray/Array_Tutorial.html#normalization
+ - Jovana Maksimovic pipeline: [link]https://bioconductor.org/packages/release/workflows/vignettes/methylationArrayAnalysis/inst/doc/methylationArrayAnalysis.html#quality-control
+ - FOXO pipeline: [link]https://life-epigenetics-methylprep.readthedocs-hosted.com/en/latest/docs/introduction/introduction.html#introduction
+ - Noramalization benchmark paper: [link]https://clinicalepigeneticsjournal.biomedcentral.com/articles/10.1186/s13148-023-01459-z
+
 
 ## Contact
 
-For questions or issues, please contact [Tatiana Karp](t.karp@rug.nl), [Martin Banchero] (m.banchero@umcg.nl), [Maaike de Vries] (m.de.vries04@umcg.nl).
+For questions or issues, please contact [Tatiana Karp](t.karp@rug.nl), [Martin Banchero](m.banchero@umcg.nl), [Maaike de Vries](m.de.vries04@umcg.nl).
