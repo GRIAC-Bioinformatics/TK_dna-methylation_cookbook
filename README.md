@@ -40,7 +40,8 @@ This repository contains scripts for performing quality control (QC) steps on DN
 
 - R (version 4.0 or later recommended)
 - Required R packages: `minfi`, `tidyverse`, `ENmix`, `wateRmelon`
-- Depending on the array version you need to use different manifest and annotation files 
+- Depending on the array version you need to use different manifest and annotation files.
+- Depending on the array version you might need to use different list of croo-reactive probes
 
 ### Running the Scripts
 
@@ -58,3 +59,5 @@ Depending on the size of the dataset you might need to run the scripts on HPC us
 ## Contact
 
 For questions or issues, please contact [Tatiana Karp](t.karp@rug.nl), [Martin Banchero](m.banchero@umcg.nl), [Maaike de Vries](m.de.vries04@umcg.nl).
+
+
