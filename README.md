@@ -41,11 +41,11 @@ This repository contains scripts for performing quality control (QC) steps on DN
 - R (version 4.0 or later recommended)
 - Required R packages: `minfi`, `tidyverse`, `ENmix`, `wateRmelon`
 - Depending on the array version you need to use different manifest and annotation files.
-- Depending on the array version you might need to use different list of croo-reactive probes
+- Depending on the array version you might need to use different list of cross-reactive probes
 
 ### Running the Scripts
 
-Depending on the size of the dataset you might need to run the scripts on HPC usong batch jobs. For more info about how to do this on nibbler visit this link: https://docs.gcc.rug.nl/nibbler/analysis/
+Depending on the size of the dataset you might need to run the scripts on HPC using batch jobs. For more info about how to do this on nibbler visit this link: https://docs.gcc.rug.nl/nibbler/analysis/
 
 ## References: 
 
