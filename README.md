@@ -54,6 +54,8 @@ Depending on the size of the dataset you might need to run the scripts on HPC us
  - FOXO pipeline: https://life-epigenetics-methylprep.readthedocs-hosted.com/en/latest/docs/introduction/introduction.html#introduction
  - Noramalization benchmark paper: https://clinicalepigeneticsjournal.biomedcentral.com/articles/10.1186/s13148-023-01459-z
  - Illumina - Leveraging Hidden Information to Correct for Background Fluorescence with Kim Siegmund: https://www.youtube.com/watch?v=_IWhwXnAAls
+ - Illumina manifest (product) files: https://support.illumina.com/array/array_kits/infinium-methylationepic-beadchip-kit/downloads.html
+ 
 
 
 ## Contact
