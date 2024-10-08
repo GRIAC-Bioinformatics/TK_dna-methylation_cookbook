@@ -33,6 +33,10 @@ This repository contains scripts for performing quality control (QC) steps on DN
     - Check XY-related probes
     - Check high-intensity probes
     - Check probes with low bead counts
+    
+- **File 4: `00_extract_betas_for_SNPs.R`**
+  - **Purpose:** Extract betas for probes from EPIC array that were developed for known common SNPs.
+    - You can use this data to check for sample swaps if there is also genotype data available for the same samples
 
 ## Usage
 
