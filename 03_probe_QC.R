@@ -138,13 +138,10 @@ Unmethmed <- apply(Unmeth, 1, median)
 
 high_intensity_cutoff =10000
 MUmed <- sqrt(Methmed * Unmethmed)
-hi.MU <- which(MUmed > high_intensity_cutoff)
+hi.MU <- names(which(MUmed > 10000)) # cutoff at MU = 10,000
 
-all.probes <- rownames(sf.MSet)
-hi.probes <- all.probes[hi.MU]
-
-failed.probes5 <-  all.probes[which(hi.probes %in% snpProbesI)]
-failed.probes5 <- rownames(sf.MSet[failed.probes5])
+# select only type 1 Porbes 
+failed.probes5 <- hi.MU [hi.MU %in% snpProbesI] # select only type 1 probes
 
 print(paste("Failed probes due to high intensity: ",
             length(failed.probes5)))
@@ -187,12 +184,12 @@ failed.probes <- unique(c(
 ## Save failed probes
 
 write(failed.probes1, file = "../out_dir/failed_probes1_low_detection_pvalues.txt")
-write(failed.probes2, file = "../out_dir/failed_probes2_crossreactive.txt"))
-write(failed.probes3, file = "../out_dir/failed_probes3_snpsites_at_interrogation.txt"))
-write(failed.probes4, file = "../out_dir/failed_probes4_xy_problematic_probes.txt"))
-write(failed.probes5, file = "../out_dir/failed_probes5_high_intensity_signals.txt"))
-write(failed.probes6, file = "../out_dir/failed_probes6_low_bead_counts.txt"))
-write(failed.probes, file = "../out_dir/failed_probes.txt"))
+write(failed.probes2, file = "../out_dir/failed_probes2_crossreactive.txt")
+write(failed.probes3, file = "../out_dir/failed_probes3_snpsites_at_interrogation.txt")
+write(failed.probes4, file = "../out_dir/failed_probes4_xy_problematic_probes.txt")
+write(failed.probes5, file = "../out_dir/failed_probes5_high_intensity_signals.txt")
+write(failed.probes6, file = "../out_dir/failed_probes6_low_bead_counts.txt")
+write(failed.probes, file = "../out_dir/failed_probes.txt")
 
 print(paste("Total probes to discard: ",
             length(failed.probes6)))
@@ -202,11 +199,8 @@ print(paste("Total probes to discard: ",
 # Filter the MSet by removing failed probes
 r.probes.raw <- which(rownames(sf.MSet) %in% failed.probes)
 pf.sf.MSet <- sf.MSet[-r.probes.raw,] # MethylSet
-pf.sf.rgSet <- sf.rgSet[-r.probes.raw,] #RedGreenSet
-pf.sf.grSet <- sf.grSet[-r.probes.raw,] #GenomeMappedRatioSet
+
 
 
 # Save the probe filtered and sample filtered methylation data
-save(pf.sf.MSet, file = "../out_dir/pf_sf_MSet.RData"))
-save(pf.sf.rgSet, file = "../out_dir/pf_sf_rgSet.RData"))
-save(pf.sf.grSet, file = "../out_dir/pf_sf_grSet.RData"))
+save(pf.sf.MSet, file = "../out_dir/pf_sf_MSet.RData")
