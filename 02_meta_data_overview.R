@@ -187,14 +187,14 @@ tryCatch({
   # Extract methylation values 
   beta <- getBeta(RGset)
   
-  # Check for and handle missing/infinite values
+  # Handle missing/infinite values
   if (any(is.na(beta))) {
     message("NA values found - imputing with row medians")
     beta_imputed <- apply(beta, 1, function(x) {
       x[is.na(x)] <- median(x, na.rm = TRUE)
       return(x)
     })
-    beta <- t(beta_imputed)  # Transpose back to original orientation
+    beta <- t(beta_imputed)
   }
   
   if (any(!is.finite(beta))) {
@@ -207,38 +207,36 @@ tryCatch({
     beta <- t(beta_fixed)
   }
   
-  # Transpose the matrix for PCA (samples should be rows)
+  # Transpose and perform PCA
   beta_t <- t(beta)
-  
-  # Perform PCA
   pca_result <- prcomp(beta_t, scale. = TRUE, center = TRUE)
   
-  # Calculate percentage of variance explained
+  # Calculate variance explained
   pca_var <- pca_result$sdev^2
   pca_var_per <- round(pca_var/sum(pca_var)*100, 1)
   
-  # Extract sample metadata from colData
-  sample_metadata <- as.data.frame(RGset@colData)[, pca_vars]
-  
-  # Combine PCA results with metadata
+  # Prepare plot data
   plot_data <- data.frame(
     PC1 = pca_result$x[, 1],
     PC2 = pca_result$x[, 2],
-    sample_metadata
+    as.data.frame(RGset@colData)[, pca_vars]
   )
   
-  # Modified plotting function with smart legend handling
+  # Modified plotting function
   plot_pca_by_variable <- function(data, variable) {
     n_unique <- length(unique(data[[variable]]))
     
     if (n_unique > 8) {
-      ggplot(data, aes(x = PC1, y = PC2)) +
-        geom_point(color = "steelblue", alpha = 0.7) +
-        labs(title = paste("PCA -", variable, "(too many categories)"),
+      # Plot text labels instead of points for high-cardinality variables
+      ggplot(data, aes(x = PC1, y = PC2, label = .data[[variable]])) +
+        geom_text(size = 3, alpha = 0.7, check_overlap = TRUE) +
+        labs(title = paste("PCA -", variable),
              x = paste0("PC1 (", pca_var_per[1], "%)"),
              y = paste0("PC2 (", pca_var_per[2], "%)")) +
-        theme_minimal()
+        theme_minimal() +
+        theme(legend.position = "none")
     } else {
+      # Regular plot with points and legend for low-cardinality variables
       ggplot(data, aes(x = PC1, y = PC2, color = .data[[variable]])) +
         geom_point(alpha = 0.7) +
         labs(title = paste("PCA colored by", variable),
@@ -250,18 +248,9 @@ tryCatch({
     }
   }
   
-  # Create plots for all variables of interest
-  pca_plots <- lapply(pca_vars, function(var) {
-    plot_pca_by_variable(plot_data, var)
-  })
-  
-  # Arrange plots in a grid
-  if (length(pca_plots) > 0) {
-    grid_plots <- do.call(grid.arrange, c(pca_plots, ncol = 2))
-    grid.newpage()
-    grid.draw(grid_plots)
-  } else {
-    message("No valid plots generated")
+  # Create and display one plot per page
+  for (var in pca_vars) {
+    print(plot_pca_by_variable(plot_data, var))
   }
   
 }, error = function(e) {
