@@ -1,5 +1,4 @@
 #!/usr/bin/env Rscript
-###############################################################################
 # meta.data.overview.R - Methylation Array Metadata Visualization Script
 #
 # Author: Vartika Bisht
@@ -14,9 +13,9 @@
 #
 # Parameters:
 #   -i, --input    Path to input RGset.RData file (required)
+#   -p, --pca      Variables for PCA (space-separated, e.g., -p var1 var2 var3)
 #   -o, --output   Output PDF path [default: ./RGset_metadata_summary.pdf]
-#
-# Usage: Rscript meta.data.overview.R -i input.RData -o report.pdf
+# Usage: Rscript meta.data.overview.R -i input.RData -o report.pdf -p Sample_Group Sample_Plate Sample_Well Gender Array Slide
 #
 # Hierarchy Documentation:
 #   Slide:       Physical chip identifier (e.g., 6264488065)
@@ -26,7 +25,7 @@
 #
 # Note: Each sample is uniquely identified by the combination of:
 #       Slide + Array + Plate + Well identifiers
-###############################################################################
+#       (e.g., 6264488065 + R01C01 + MeDALL1 + A01)
 
 # Silent library loading and error handling
 suppressPackageStartupMessages({
@@ -48,6 +47,8 @@ suppressPackageStartupMessages({
 option_list <- list(
   make_option(c("-i", "--input"), type="character", default=NULL,
               help="Path to RGset.RData file", metavar="FILE"),
+  make_option(c("-p", "--pca"), type="character", default=NULL,
+              help="Variables for PCA (comma-separated, e.g., -p var1,var2,var3)", metavar="VAR1,VAR2,..."),
   make_option(c("-o", "--output"), type="character", default=NULL,
               help="Output PDF file path [default=%default]", metavar="FILE")
 )
@@ -75,6 +76,12 @@ load(opt$input)
 # Verify the loaded object
 if (!exists("RGset") || !inherits(RGset, "RGChannelSet")) {
   stop("The loaded object is not an RGChannelSet or is not named 'RGset'", call.=FALSE)
+}
+
+if (!is.null(opt$pca)) {
+  pca_vars <- unlist(strsplit(opt$pca, ","))
+} else {
+  stop("No PCA variables provided. Use -p var1,var2 ...")
 }
 
 message("Creating output PDF: ", opt$output)
@@ -172,6 +179,96 @@ tryCatch({
   }
 }, error = function(e) {
   message("Error creating summary page: ", e$message)
+})
+
+
+## Principal Components Analysis (PCA) plot
+tryCatch({
+  # Extract methylation values 
+  beta <- getBeta(RGset)
+  
+  # Check for and handle missing/infinite values
+  if (any(is.na(beta))) {
+    message("NA values found - imputing with row medians")
+    beta_imputed <- apply(beta, 1, function(x) {
+      x[is.na(x)] <- median(x, na.rm = TRUE)
+      return(x)
+    })
+    beta <- t(beta_imputed)  # Transpose back to original orientation
+  }
+  
+  if (any(!is.finite(beta))) {
+    message("Infinite values found - replacing with row max/min")
+    beta_fixed <- apply(beta, 1, function(x) {
+      x[x == Inf] <- max(x[is.finite(x)], na.rm = TRUE)
+      x[x == -Inf] <- min(x[is.finite(x)], na.rm = TRUE)
+      return(x)
+    })
+    beta <- t(beta_fixed)
+  }
+  
+  # Transpose the matrix for PCA (samples should be rows)
+  beta_t <- t(beta)
+  
+  # Perform PCA
+  pca_result <- prcomp(beta_t, scale. = TRUE, center = TRUE)
+  
+  # Calculate percentage of variance explained
+  pca_var <- pca_result$sdev^2
+  pca_var_per <- round(pca_var/sum(pca_var)*100, 1)
+  
+  # Extract sample metadata from colData
+  sample_metadata <- as.data.frame(RGset@colData)[, pca_vars]
+  
+  # Combine PCA results with metadata
+  plot_data <- data.frame(
+    PC1 = pca_result$x[, 1],
+    PC2 = pca_result$x[, 2],
+    sample_metadata
+  )
+  
+  # Modified plotting function with smart legend handling
+  plot_pca_by_variable <- function(data, variable) {
+    n_unique <- length(unique(data[[variable]]))
+    
+    if (n_unique > 8) {
+      ggplot(data, aes(x = PC1, y = PC2)) +
+        geom_point(color = "steelblue", alpha = 0.7) +
+        labs(title = paste("PCA -", variable, "(too many categories)"),
+             x = paste0("PC1 (", pca_var_per[1], "%)"),
+             y = paste0("PC2 (", pca_var_per[2], "%)")) +
+        theme_minimal()
+    } else {
+      ggplot(data, aes(x = PC1, y = PC2, color = .data[[variable]])) +
+        geom_point(alpha = 0.7) +
+        labs(title = paste("PCA colored by", variable),
+             x = paste0("PC1 (", pca_var_per[1], "%)"),
+             y = paste0("PC2 (", pca_var_per[2], "%)")) +
+        theme_minimal() +
+        theme(legend.position = "bottom") +
+        guides(color = guide_legend(nrow = 2, byrow = TRUE))
+    }
+  }
+  
+  # Create plots for all variables of interest
+  pca_plots <- lapply(pca_vars, function(var) {
+    plot_pca_by_variable(plot_data, var)
+  })
+  
+  # Arrange plots in a grid
+  if (length(pca_plots) > 0) {
+    grid_plots <- do.call(grid.arrange, c(pca_plots, ncol = 2))
+    grid.newpage()
+    grid.draw(grid_plots)
+  } else {
+    message("No valid plots generated")
+  }
+  
+}, error = function(e) {
+  message("Error creating PCA plot: ", e$message)
+  grid.newpage()
+  grid.text(paste("Error displaying PCA plot:", e$message), 
+            gp = gpar(col = "red"))
 })
 
 ## NEW: Create Female vs Male per Plate plot
