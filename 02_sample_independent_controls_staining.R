@@ -43,7 +43,6 @@
 #                     samples.
 
 # --- Usage ---
-# To execute this script, run the following command in your R environment or terminal:
 # Rscript 02_sample_independent_controls_staining.R \
 #   -r RGset.RData \
 #   -c controls_probes.csv \
