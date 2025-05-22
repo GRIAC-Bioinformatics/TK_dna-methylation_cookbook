@@ -1,5 +1,4 @@
 #!/usr/bin/env Rscript
-###############################################################################
 # Rscript 02_sample_dependent_controls_bisulfite_conversion.R -r RGset.RData -c controls_probes.csv --bs1_output Flagged_bisulfite_conversion_I.csv --bs2_output Flagged_bisulfite_conversion_II.csv -p sample_dependent_controls_bisulfite_conversion_overview.pdf
 #
 # This script evaluates bisulfite conversion efficiency using Illumina's 
@@ -27,7 +26,7 @@
 # https://support-docs.illumina.com/ARR/Inf_HD_Methylation/Content/ARR/Methylation/SampleDependentControlsIntro_fINF_mMeth.htm
 #
 # Note: Bisulfite conversion occurs at the plate level prior to array hybridization.
-###############################################################################
+
 
 
 # Silent library loading and error handling
@@ -77,9 +76,9 @@ if (!exists("RGset")) {
 
 control_probes <- read.csv(opt$control_probes, header = FALSE)[,c(1,2,3,4)]
 
-##############################################################
+# =============================================================
 # Bisulfite Conversion Control Probes - Quality Assessment
-###############################################################
+# =============================================================
 
 # Purpose:
 # Evaluate bisulfite conversion efficiency using Illumina's 
@@ -140,7 +139,7 @@ control_probes <- read.csv(opt$control_probes, header = FALSE)[,c(1,2,3,4)]
 # Technical Note:
 # All color assignments in the manifest ultimately map to either
 # green or red channels during signal processing.
-##############################################################
+
 ctrl = "BISULFITE CONVERSION I"
 red <- getRed(RGset)
 green <- getGreen(RGset)
@@ -150,6 +149,7 @@ ctrlData <-  rbind(
             cbind(channel = "Green", melt(green[ctrlAddress, ], varnames = c("address", "sample"))))
 ctrlData$value <- log2(ctrlData$value)
 ctrlData$sample_plate <- RGset@colData[ctrlData$sample,]$Sample_Plate
+ctrlData$sample_well <- RGset@colData[ctrlData$sample,]$Sample_Well
 rm(red, green, ctrlAddress)
 gc()
 
@@ -199,6 +199,32 @@ sample_dependent_controls_bisulfite_conversion_I_plate <-
     strip.background = element_blank(),  
     panel.spacing = unit(0.5, "lines")  
   )
+
+sample_dependent_controls_bisulfite_conversion_I_well <- 
+  ggplot(df, aes(x = sample_well, y = value, fill = probe_group)) +
+  geom_boxplot(position = position_dodge(0.8), width = 0.6) +
+  facet_wrap(~sample_well, scales = "free_x", ncol = 8) + 
+  scale_fill_manual(values = c(
+    "Green Channel High" = "darkgreen",
+    "Green Channel Background" = "lightgreen",
+    "Red Channel High" = "darkred",
+    "Red Channel Background" = "pink"
+  )) +
+  labs(
+    title = "Bisulfite Conversion Controls type I by well",
+    x = "Sample Plate",
+    y = "Log2 Intensity",
+    fill = "Probe Group"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.title.x = element_blank(),     
+    axis.text.x = element_blank(),      
+    axis.ticks.x = element_blank(),   
+    strip.background = element_blank(),  
+    panel.spacing = unit(0.5, "lines")  
+  )
+
 
 rm(df)
 
@@ -318,6 +344,7 @@ ctrlData <-  rbind(
             cbind(channel = "Green", melt(green[ctrlAddress, ], varnames = c("address", "sample"))))
 ctrlData$value <- log2(ctrlData$value)
 ctrlData$sample_plate <- RGset@colData[ctrlData$sample,]$Sample_Plate
+ctrlData$sample_well <- RGset@colData[ctrlData$sample,]$Sample_Well
 
 # Comparing intensity distribution platewise
 # Everything is evaluated in red channel so remove green
@@ -328,6 +355,21 @@ sample_dependent_controls_bisulfite_conversion_II_plate <-
   geom_boxplot(width = 0.6,  fill = "lightblue") +  # Single color
   labs(
     title = "Bisulfite Conversion Controls type II by plate",
+    y = "Sample Plate",  # Now on y-axis
+    x = "Log2 Intensity red channel"  # Now on x-axis
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(size = 8),  # Adjust plate label size
+    panel.grid.major.y = element_blank(),  # Remove horizontal grid lines
+    plot.title.position = "plot"  # Title alignment
+  )
+
+  sample_dependent_controls_bisulfite_conversion_II_well <- 
+  ggplot(df, aes(y = sample_well, x = value)) + 
+  geom_boxplot(width = 0.6,  fill = "lightblue") +  # Single color
+  labs(
+    title = "Bisulfite Conversion Controls type II by well",
     y = "Sample Plate",  # Now on y-axis
     x = "Log2 Intensity red channel"  # Now on x-axis
   ) +
@@ -356,7 +398,33 @@ rm(red, green, ctrlAddress)
 
 # Get axis limits based on data range
 axis_max <- max(c(ctrlData$green, ctrlData$red), na.rm = TRUE)
-sample_dependent_controls_bisulfite_conversion_II <- ggplot(ctrlData, aes(x = green, y = red)) +
+sample_dependent_controls_bisulfite_conversion_II <- ggplot(ctrlData, aes(x = red)) +
+  geom_histogram(
+    binwidth = 0.5,              
+    fill = "gray80",              
+    color = "white",              
+    alpha = 0.8                    
+  ) +
+  labs(
+    title = "Bisulfite Conversion Controls type II",
+    subtitle = "Controls to be evaluated in the red channel\nEach sample is represented by 4 points",
+    x = "Log2 Red Channel Intensity",
+    y = "Count"
+  ) +
+  scale_x_continuous(
+    limits = c(5, 15),           
+    breaks = seq(5, 15, by = 1)    
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5),
+    panel.grid.major.x = element_line(color = "gray90"),
+    panel.grid.minor.x = element_blank(),
+    aspect.ratio = 0.6            
+  )
+  
+  ggplot(ctrlData, aes(x = green, y = red)) +
   # Add diagonal x=y line first (so it's behind points)
   geom_abline(intercept = 0, slope = 1, color = "gray50", linetype = "dashed") +
   # Plot points
@@ -364,8 +432,7 @@ sample_dependent_controls_bisulfite_conversion_II <- ggplot(ctrlData, aes(x = gr
   # Make axes equal and set limits
   coord_equal(xlim = c(5,15), ylim = c(5, 15)) +
   labs(
-    title = "Bisulfite Conversion Controls type II",
-    subtitle = "Each sample is represented by 4 points",
+    
     x = "Log2 Green Channel Intensity",
     y = "Log2 Red Channel Intensity"
   ) +
@@ -403,7 +470,13 @@ grid.draw(ggplotGrob(sample_dependent_controls_bisulfite_conversion_I))
 grid.newpage()
 grid.draw(ggplotGrob(sample_dependent_controls_bisulfite_conversion_I_plate))
 grid.newpage()
+grid.draw(ggplotGrob(sample_dependent_controls_bisulfite_conversion_I_well))
+grid.newpage()
 grid.draw(ggplotGrob(sample_dependent_controls_bisulfite_conversion_II))
 grid.newpage()
 grid.draw(ggplotGrob(sample_dependent_controls_bisulfite_conversion_II_plate))
+grid.newpage()
+grid.draw(ggplotGrob(sample_dependent_controls_bisulfite_conversion_II_well))
 dev.off()
+
+
