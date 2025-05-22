@@ -248,7 +248,7 @@ write.csv(
 )
 
 # Finally we will check if there is any plate specifc bias in this step. It coudl be that all the samples we have flagged are actually coming from the same plate
-pdf(opt$pdf_output, width = 8, height = 11)  # Increased height
+pdf(opt$pdf_output, width = 8, height = 11) 
 grid.draw(ggplotGrob(sample_dependent_controls_specificity_I))
 grid.newpage()
 grid.draw(ggplotGrob(sample_dependent_controls_specificity_II))
