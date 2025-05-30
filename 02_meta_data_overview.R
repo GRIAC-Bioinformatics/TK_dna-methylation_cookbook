@@ -15,7 +15,7 @@
 #   -i, --input    Path to input RGset.RData file (required)
 #   -p, --pca      Variables for PCA (space-separated, e.g., -p var1 var2 var3)
 #   -o, --output   Output PDF path [default: ./RGset_metadata_summary.pdf]
-# Usage: Rscript meta.data.overview.R -i input.RData -o report.pdf -p Sample_Group Sample_Plate Sample_Well Gender Array Slide
+# Rscript ${SCRIPTDIR}/02_meta_data_overview.R -i RGset.RData -o RGset_metadata_summary.pdf -p "Sample_Group,Sample_Plate,Sample_Well,Gender,Array,Slide" -l "Sample_Plate" -s "Slide" -b "Sample_Plate:Sample_Group,Sample_Plate:Gender,Slide:Sample_Group,Slide:Gender"
 #
 # Hierarchy Documentation:
 #   Slide:       Physical chip identifier (e.g., 6264488065)
@@ -49,6 +49,12 @@ option_list <- list(
               help="Path to RGset.RData file", metavar="FILE"),
   make_option(c("-p", "--pca"), type="character", default=NULL,
               help="Variables for PCA (comma-separated, e.g., -p var1,var2,var3)", metavar="VAR1,VAR2,..."),
+  make_option(c("-b", "--stackbarplot"), type="character", default=NULL,
+              help="Variables for stacked bar plots comparisons in the format grouping_variable:plotting_variable (comma-separated, e.g., -b var1:var2,var2:var3,var3:var4)", metavar="VAR1:VAR2,VAR2:VAR3,..."),
+  make_option(c("-l", "--platecol"), type="character", default="Sample_Plate",
+              help="Column name for plate information", metavar="STRING"),
+  make_option(c("-s", "--slidecol"), type="character", default="Slide",
+              help="Column name for slide information", metavar="STRING"),
   make_option(c("-o", "--output"), type="character", default=NULL,
               help="Output PDF file path [default=%default]", metavar="FILE")
 )
@@ -84,6 +90,12 @@ if (!is.null(opt$pca)) {
   stop("No PCA variables provided. Use -p var1,var2 ...")
 }
 
+if (!is.null(opt$stackbarplot)) {
+  stackbar_vars <- unlist(strsplit(opt$stackbarplot, ","))
+} else {
+  stackbar_vars <- NULL
+}
+
 message("Creating output PDF: ", opt$output)
 
 # Start PDF device
@@ -107,7 +119,7 @@ create_stacked_barplot <- function(data, title, x_label = "", y_label = "Count")
       theme_minimal() +
       theme(axis.text.x = element_text(angle = 45, hjust = 1),
             plot.title = element_text(hjust = 0.5, face = "bold"),
-            legend.position = "bottom") +
+            legend.position = "right") +
       scale_fill_brewer(palette = "Dark2")
     
     # Print the plot
@@ -142,21 +154,25 @@ tryCatch({
 tryCatch({
   grid.newpage()
   summary_text <- c(
-    paste("Dataset Dimensions:", paste(dim(RGset), collapse = " x ")),
     paste("Object Size:", format(object.size(RGset), units = "GB")),
-    paste("Unique Samples:", length(unique(RGset@colData$Sample_Name))),
-    paste("Unique Slides:", length(unique(RGset@colData$Slide))),
-    paste("Unique Arrays:", length(unique(RGset@colData$Array))),
-    paste("Unique Sample Plates:", length(unique(RGset@colData$Sample_Plate))),
-    paste("Unique Sample Groups:", length(unique(RGset@colData$Sample_Group))),
-    paste("Unique Genders:", length(unique(RGset@colData$Gender))),
-    "Sample Group Distribution:",
-    capture.output(print(table(RGset@colData$Sample_Group))),
-    "",
-    "Gender Distribution:",
-    capture.output(print(table(RGset@colData$Gender))),
-    ""
+    paste("Unique Samples:", length(unique(RGset@colData$Sample_Name)))
   )
+
+  # Add PCA variables if provided
+  if (!is.null(pca_vars) && length(pca_vars) > 0) {
+    summary_text <- c(summary_text, 
+                      "PCA Variables:", 
+                      paste(" -", pca_vars, collapse = "\n"))
+    # Add sample plate and well information
+    for (var in pca_vars) {
+      summary_text <- c(summary_text,
+                        paste("Unique", var, ":", 
+                              length(unique(RGset@colData[[var]])) ) )
+    }
+  } else {
+    summary_text <- c(summary_text, "No PCA variables provided.")
+  }
+  
   
   # Split long text into multiple pages if needed
   text_lines <- unlist(strsplit(paste(summary_text, collapse = "\n"), "\n"))
@@ -243,7 +259,7 @@ tryCatch({
              x = paste0("PC1 (", pca_var_per[1], "%)"),
              y = paste0("PC2 (", pca_var_per[2], "%)")) +
         theme_minimal() +
-        theme(legend.position = "bottom") +
+        theme(legend.position = "right") +
         guides(color = guide_legend(nrow = 2, byrow = TRUE))
     }
   }
@@ -260,91 +276,51 @@ tryCatch({
             gp = gpar(col = "red"))
 })
 
-## NEW: Create Female vs Male per Plate plot
-tryCatch({
-  # Create count of females and males per plate
-  gender_by_plate <- as.data.frame.matrix(
-    table(RGset@colData$Sample_Plate, RGset@colData$Gender)
-  )
-  
-  create_stacked_barplot(gender_by_plate, 
-                        "Gender Distribution by Plate", 
-                        x_label = "Sample Plate")
-}, error = function(e) {
-  message("Error creating Gender by Plate plot: ", e$message)
-})
-
-## Sample Group by Plate plot
-tryCatch({
-  split_results <- lapply(split(RGset@colData, RGset@colData$Sample_Plate), 
-                         function(x) table(x$Sample_Group))
-  df_list <- lapply(names(split_results), function(plate) {
-    df <- as.data.frame(split_results[[plate]])
-    colnames(df) <- c("Sample_Group", plate)
-    df
+plot_data_and_create_barplot <- function(rg_set, group_var, plot_var) {
+  tryCatch({
+    # Split data by the grouping variable (e.g., Sample_Plate, Slide)
+    split_results <- lapply(split(rg_set@colData, rg_set@colData[[group_var]]),
+                            function(x) table(x[[plot_var]]))
+    
+    # Convert list of tables to a list of data frames
+    df_list <- lapply(names(split_results), function(group_val) {
+      df <- as.data.frame(split_results[[group_val]])
+      colnames(df) <- c(plot_var, group_val)
+      df
+    })
+    
+    # Merge all data frames into a single combined data frame
+    combined_df <- Reduce(function(x, y) merge(x, y, by = plot_var, all = TRUE), df_list)
+    rownames(combined_df) <- combined_df[[plot_var]]
+    combined_df <- combined_df[,-1, drop = FALSE] # Remove the original variable column
+    combined_df[is.na(combined_df)] <- 0 # Replace NA with 0
+    
+    # Transpose the data for plotting (rows become plates/slides, columns become categories)
+    plot_data <- as.data.frame(t(combined_df))
+    
+    # Create the stacked bar plot
+    create_stacked_barplot(plot_data, 
+                          title = paste0(plot_var, " distribution by ", group_var),
+                          x_label = group_var,
+                          y_label = "")
+  }, error = function(e) {
+    message(paste0("Error creating ", plot_var, " by ", group_var, " plot: "), e$message)
   })
-  combined_df <- Reduce(function(x, y) merge(x, y, by = "Sample_Group", all = TRUE), df_list)
-  rownames(combined_df) <- combined_df$Sample_Group
-  combined_df <- combined_df[,-1, drop = FALSE]
-  combined_df[is.na(combined_df)] <- 0
-  
-  # Transpose for plotting
-  plot_data <- as.data.frame(t(combined_df))
-  
-  create_stacked_barplot(plot_data, 
-                        "Sample Group Distribution by Plate", 
-                        x_label = "Sample Plate")
-}, error = function(e) {
-  message("Error creating Sample Group by Plate plot: ", e$message)
-})
+}
 
-## Sample Group by Slide plot
-tryCatch({
-  split_results <- lapply(split(RGset@colData, RGset@colData$Slide), 
-                         function(x) table(x$Sample_Group))
-  df_list <- lapply(names(split_results), function(slide) {
-    df <- as.data.frame(split_results[[slide]])
-    colnames(df) <- c("Sample_Group", slide)
-    df
-  })
-  combined_df <- Reduce(function(x, y) merge(x, y, by = "Sample_Group", all = TRUE), df_list)
-  rownames(combined_df) <- combined_df$Sample_Group
-  combined_df <- combined_df[,-1, drop = FALSE]
-  combined_df[is.na(combined_df)] <- 0
-  
-  # Transpose for plotting
-  plot_data <- as.data.frame(t(combined_df))
-  
-  create_stacked_barplot(plot_data, 
-                        "Sample Group Distribution by Slide", 
-                        x_label = "Slide")
-}, error = function(e) {
-  message("Error creating Sample Group by Slide plot: ", e$message)
-})
-
-## Gender by Slide plot
-tryCatch({
-  split_results <- lapply(split(RGset@colData, RGset@colData$Slide), 
-                         function(x) table(x$Gender))
-  df_list <- lapply(names(split_results), function(slide) {
-    df <- as.data.frame(split_results[[slide]])
-    colnames(df) <- c("Gender", slide)
-    df
-  })
-  combined_df <- Reduce(function(x, y) merge(x, y, by = "Gender", all = TRUE), df_list)
-  rownames(combined_df) <- combined_df$Gender
-  combined_df <- combined_df[,-1, drop = FALSE]
-  combined_df[is.na(combined_df)] <- 0
-  
-  # Transpose for plotting
-  plot_data <- as.data.frame(t(combined_df))
-  
-  create_stacked_barplot(plot_data, 
-                        "Gender Distribution by Slide", 
-                        x_label = "Slide")
-}, error = function(e) {
-  message("Error creating Gender by Slide plot: ", e$message)
-})
+# Generate plots grouped by plate 
+for (var in stackbar_vars) {
+  # x axis variable is the grouping variable
+  group_var <- strsplit(var, ":")[[1]][1]
+  # This is the variable to be plotted on y axis
+  plot_var <- strsplit(var, ":")[[1]][2]
+  if (length(group_var) != 1 || length(plot_var) != 1) {
+    stop("Invalid format for stackbarplot variable. Use 'var1:var2' format.")
+  }
+  message(paste("Creating stacked bar plot for", group_var, "by", plot_var))
+  # Call the function to create the stacked bar plot
+  plot_data_and_create_barplot(RGset, group_var , plot_var)
+}
 
 # Close the PDF device
 dev.off()
