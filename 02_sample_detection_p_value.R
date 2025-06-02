@@ -75,7 +75,7 @@ tryCatch({
   detP <- minfi::detectionP(RGset)
 
   # Calculate mean detection p-values for each sample
-  mean_detP <- colMeans(detP)
+  mean_detP <- colMeans(detP, na.rm = TRUE, useNames = TRUE)
 
   # Convert mean detection p-values to -log10 scale
   neglog10_mean_detP <- -log10(mean_detP)
