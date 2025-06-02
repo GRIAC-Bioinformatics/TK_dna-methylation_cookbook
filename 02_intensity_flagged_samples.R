@@ -89,7 +89,27 @@ load(opt$mset)
 message("Plotting log median (met) vs log median(un-met)...")
 
 tryCatch({
-  qc <- minfi::getQC(MSet)
+
+  # qc <- minfi::getQC(MSet)
+  # meds <- (qc$mMed + qc$uMed) / 2
+  # An error occurred: Argument 'useNames' must be either TRUE or FALSE
+  # This happens when you do not define useNames while taking median using colMedians
+  # colMedians(X, rows = Y, na.rm = TRUE, useNames = TRUE)
+  # Inside getQC function, it uses colMedians to calculate mMed and uMed
+  #   getQC <- function(object) {
+  #     .isMethylOrStop(object)
+  #     U.medians <- log2(colMedians(getUnmeth(object)))
+  #     M.medians <- log2(colMedians(getMeth(object)))
+  #     df <- DataFrame(mMed = M.medians, uMed = U.medians)
+  #     rownames(df) <- colnames(object)
+  #     df
+  # }
+  # To avoid this error, we will define qc using the same function but use colMedians with useNames = TRUE
+
+  qc <- DataFrame(mMed = log2(colMedians(getMeth(MSet))),
+                  uMed = log2(colMedians(getUnmeth(MSet))))
+
+  rownames(qc) <- colnames(MSet)
 
   # Calculate values
   meds <- (qc$mMed + qc$uMed) / 2

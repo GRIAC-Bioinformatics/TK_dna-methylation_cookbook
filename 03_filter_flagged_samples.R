@@ -116,23 +116,37 @@ for (object_name in names(input_rdata_paths)) {
     # Subset the object to keep only the desired samples
     filtered_object <- current_object[, samples_to_keep_idx]
 
-    # Assign the filtered object back to its original name in the environment.
-    # This is crucial so that `save(list = object_name, ...)` correctly saves the modified object.
-    assign(object_name, filtered_object)
-
     # Construct the output file name by inserting the base suffix just before the '.Rdata' extension.
     # `tools::file_path_sans_ext` gets the filename without extension (e.g., "MSet").
     base_file_name <- tools::file_path_sans_ext(basename(file_path))
     output_file_name <- file.path(dirname(file_path), paste0(base_file_name, opt$base_suffix, ".Rdata"))
 
     # Save the filtered object to the new R data file
-    save(list = object_name, file = output_file_name)
+    save(filtered_object, file = output_file_name)
     message(paste("  Filtered and saved:", output_file_name))
 
     # Remove the loaded object from the environment tosave space
     # when loading the next file in the loop.
+    rm(filtered_object)
     rm(list = object_name)
     gc() # Clean up memory
 }
 
 message("\nSample filtering process completed for all specified R data files.")
+
+
+
+
+
+## Overall distributions of Beta values for each sample
+# Here we expect beta values presenting values close to zero or one. 
+# This is an indication of unmethylatilated CpG sites when close to zero and methylated when close to one.
+# if you have NAs due to 0 intesity values you will have errors here so to avoid this, use offset
+print("Plotting overall distributions of Beta values for each sample...")
+pdf(file.path(opt$outdir,"densityPlot.pdf"))
+pdf("/groups/umcg-griac/tmp02/projects/Vartika/projects/VB250409_illumina_beadchip_overview/medall_450k/densityPlotBetas.pdf",
+    width = 8, height = 6)
+minfi::densityPlot(
+  as.matrix(getBeta(MSet, offset = 100))
+)
+dev.off()
