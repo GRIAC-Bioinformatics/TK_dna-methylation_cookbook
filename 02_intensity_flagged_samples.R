@@ -106,8 +106,8 @@ tryCatch({
   # }
   # To avoid this error, we will define qc using the same function but use colMedians with useNames = TRUE
 
-  qc <- DataFrame(mMed = log2(colMedians(getMeth(MSet))),
-                  uMed = log2(colMedians(getUnmeth(MSet))))
+  qc <- DataFrame(mMed = log2(colMedians(getMeth(MSet), na.rm = TRUE, useNames = TRUE)),
+                  uMed = log2(colMedians(getUnmeth(MSet), na.rm = TRUE, useNames = TRUE)))
 
   rownames(qc) <- colnames(MSet)
 
