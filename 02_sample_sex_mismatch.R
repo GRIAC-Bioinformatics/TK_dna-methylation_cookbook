@@ -218,4 +218,4 @@ theme(plot.title = element_text(hjust = 0.5, face = "bold"))
 dev.off()
 
 
-write.csv(data.frame("sexmismatch" = rownames(dd[dd$MatchStatus == "Mismatch",])), file = opt$flagged, row.names = TRUE)
+write.csv(data.frame("sexmismatch" = rownames(dd[dd$MatchStatus == "Mismatch",])), file = opt$flagged, row.names = FALSE)
