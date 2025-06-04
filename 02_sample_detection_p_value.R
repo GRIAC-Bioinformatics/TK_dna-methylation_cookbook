@@ -72,16 +72,67 @@ tryCatch({
   load(opt$rgset) # Ensure opt$rgset is defined, e.g., from optparse
 
   message("Calculating detection p-values...")
-  detP <- minfi::detectionP(RGset)
+  # An error occurred: Argument 'useNames' must be either TRUE or FALSE
+  # detP <- minfi::detectionP(RGset)
+  # That is why we need to the source code
+  # Extract data to pass to low-level function that constructs `detP`
+  locusNames <- getManifestInfo(RGset, "locusNames")
+  controlIdx <- getControlAddress(RGset, controlType = "NEGATIVE")
+  Red <- getRed(RGset)
+  Green <- getGreen(RGset)
+  TypeI.Red <- getProbeInfo(RGset, type = "I-Red")
+  TypeI.Green <- getProbeInfo(RGset, type = "I-Green")
+  TypeII <- getProbeInfo(RGset, type = "II")
+  # Set up output matrix with appropriate dimensions and type
+  detP <- matrix(NA_real_,
+                  nrow = length(locusNames),
+                  ncol = ncol(Red),
+                  dimnames = list(locusNames, colnames(Red)))
+
+  # Compute summary statistics needed for calculations
+  rBg <- Red[controlIdx, , drop = FALSE]
+  rMu <- colMedians(rBg, na.rm = TRUE, useNames = TRUE)
+  rSd <- matrixStats::colMads(rBg)
+  gBg <- Green[controlIdx, , drop = FALSE]
+  gMu <- colMedians(gBg , na.rm = TRUE , useNames = TRUE)
+  gSd <- matrixStats::colMads(gBg)
+
+  # Fill output matrix
+  for (j in seq_len(ncol(detP))) {
+      # Type I Red
+      intensity <- Red[TypeI.Red$AddressA, j] + Red[TypeI.Red$AddressB, j]
+      detP[TypeI.Red$Name, j] <- pnorm(
+          q = intensity,
+          mean = 2 * rMu[j],
+          sd = 2 * rSd[j],
+          lower.tail = FALSE)
+      # Type I Green
+      intensity <- Green[TypeI.Green$AddressA, j] +
+          Green[TypeI.Green$AddressB, j]
+      detP[TypeI.Green$Name, j] <- pnorm(
+          q = intensity,
+          mean = 2 * gMu[j],
+          sd = 2 * gSd[j],
+          lower.tail = FALSE)
+      # Type II
+      intensity <- Red[TypeII$AddressA, j] + Green[TypeII$AddressA, j]
+      detP[TypeII$Name, j] <- pnorm(
+          q = intensity,
+          mean = rMu[j] + gMu[j],
+          sd = rSd[j] + gSd[j],
+          lower.tail = FALSE)
+  }
+
+  message("Detection p-values calculated successfully.")
 
   # Calculate mean detection p-values for each sample
-  mean_detP <- colMeans(detP, na.rm = TRUE, useNames = TRUE)
+  mean_detP <- colMeans(detP, na.rm = TRUE)
 
   # Convert mean detection p-values to -log10 scale
   neglog10_mean_detP <- -log10(mean_detP)
 
   # Define the -log10(opt$cutoff) cutoff
-  cutoff_neglog10_0.01 <- -log10(as.numeric(opt$cutoff))
+  cutoff <- -log10(as.numeric(opt$cutoff))
 
   # Flag samples with mean detection p-value > opt$cutoff
   flagged_sample_names <- names(which(mean_detP > as.numeric(opt$cutoff)))
@@ -108,14 +159,13 @@ tryCatch({
   par(mar = c(8, 4, 4, 2) + 0.1) # Bottom margin increased for x-axis labels
 
   plot(
-    x = 1:length(neglog10_mean_detP), # Numeric index for plotting
+    x = 1:length(neglog10_mean_detP),
     y = neglog10_mean_detP,
     type = "n", # Do not draw points initially
     xlab = "", # No generic X-axis label, will use sample names
     ylab = "-log10 Mean Detection P-value",
     main = paste0("Mean Detection P-value Per Sample (Red line: p = ",opt$cutoff,")"),
     xaxt = "n", # Suppress default x-axis
-    ylim = c(min(neglog10_mean_detP, na.rm = TRUE), max(neglog10_mean_detP, na.rm = TRUE) * 1.1) # Adjust y-axis limit
   )
 
   # Add points for samples not flagged
@@ -129,19 +179,17 @@ tryCatch({
 
   # Add sample names for flagged samples
   if (num_flagged_samples > 0) {
-    text(
-      x = which(names(neglog10_mean_detP) %in% flagged_sample_names),
-      y = neglog10_mean_detP[names(neglog10_mean_detP) %in% flagged_sample_names],
-      labels = names(neglog10_mean_detP)[names(neglog10_mean_detP) %in% flagged_sample_names],
-      pos = 3, # Position text above point
-      cex = 0.7, # Adjust text size
-      col = "red",
-      srt = 45 # Rotate text for better readability
-    )
+      points(
+    x = which((names(neglog10_mean_detP) %in% flagged_sample_names)),
+    y = neglog10_mean_detP[(names(neglog10_mean_detP) %in% flagged_sample_names)],
+    pch = 16, # Solid circle
+    col = "red",
+    cex = 0.8
+  )
   }
 
   # Add red line at -log10(opt$cutoff)
-  abline(h = cutoff_neglog10_0.01, col = "red", lty = 2, lwd = 2)
+  abline(h = cutoff, col = "red", lty = 2, lwd = 1)
 
   # Add custom x-axis labels (sample names)
   axis(
@@ -151,31 +199,6 @@ tryCatch({
     las = 2, # Rotate labels vertically
     cex.axis = 0.7 # Adjust label size
   )
-
-  # --- PLOT 2: Density plot of all p-values ---
-  message("Plotting density of all detection p-values...")
-  plot.new() # Start a new plot on a new page
-  par(mar = c(5, 5, 4, 2) + 0.1) # Reset margins for standard plot
-
-  # Melt the entire detP matrix for density calculation
-  # Flatten the matrix to a vector of all p-values
-  all_pvalues <- as.vector(detP)
-  neglog10_all_pvalues <- -log10(all_pvalues)
-
-  # Calculate density
-  p_density <- density(neglog10_all_pvalues, na.rm = TRUE)
-
-  plot(
-    p_density,
-    xlab = "-log10 P-value",
-    ylab = "Density",
-    main = paste0("Density of Detection P-values (", num_flagged_samples, " samples with mean p-value > ",opt$cutoff,")"),
-    col = "darkgreen",
-    lwd = 2
-  )
-
-  # Add vertical line at -log10(opt$cutoff)
-  abline(v = cutoff_neglog10_0.01, col = "red", lty = 2, lwd = 2)
 
   dev.off()
   message("Detection p-value plots generated successfully and saved to ", opt$pdf)
