@@ -115,7 +115,7 @@ tryCatch({
   pdf(opt$pdf, width = 10, height = 7)
   message("Generating detection p-value plots...")
   print(ggplot(PassProbeDF, aes(x = Fraction)) +
-      geom_histogram(binwidth = 0.1, fill = "blue", color = "black") + # Changed binwidth to 0.1
+      geom_histogram(binwidth = 0.001, fill = "blue", color = "black") +
       labs(title = "Distribution of number of samples in which each probes passes the detection P-value cutoff",
           subtitle = paste0("Cutoff: ", opt$cutoff, " (red line indicates threshold)\n",
                             "Probes passing the cutoff in at least ", opt$threshold * 100, "% of samples are retained"),
