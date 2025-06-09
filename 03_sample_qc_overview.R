@@ -17,19 +17,7 @@
 # Note: For flags that can take multiple CSV files, provide them as a space-separated
 # string enclosed in double quotes.
 # Example:
-# Rscript 03_sample_qc_overview.R \
-#     -b "Flagged_bisulfite_conversion_I.csv Flagged_bisulfite_conversion_II.csv" \
-#     -n "Flagged_nonpolymeric.csv" \
-#     -c "Flagged_specificity_I.csv Flagged_specificity_II.csv" \
-#     -e "Flagged_extension.csv" \
-#     -h "Flagged_hybridization.csv" \
-#     -s "Flagged_staining.csv" \
-#     -t "Flagged_target_removal.csv" \
-#     -G "RGset.Rdata" \
-#     -P "Sample_Group Sample_Plate Sample_Well Gender Array Slide" \
-#     -o "sample_qc.csv" \
-#     -p "sample_qc_analysis.pdf" \
-#     -a "optional_additional_file.csv optional_another_file.csv"
+# Rscript 03_sample_qc_overview.R -b "Flagged_bisulfite_conversion_I.csv Flagged_bisulfite_conversion_II.csv" -n "Flagged_nonpolymeric.csv" -c "Flagged_specificity_I.csv Flagged_specificity_II.csv" -e "Flagged_extension.csv" -h "Flagged_hybridization.csv" -s "Flagged_staining.csv" -t "Flagged_target_removal.csv" -d "Flagged_probe_detectionP.csv" -x "Flagged_sample_sex_mismatch.csv" -f 2 -G "RGset.Rdata" -P "Sample_Group Sample_Plate Sample_Well Gender Array Slide" -o "sample_qc.csv" -p "sample_qc_analysis.pdf" -a "optional_additional_file.csv optional_another_file.csv"
 
 # Input:
 # -b, --bisulfite_flag: (Required) Path(s) to the CSV file(s) for Bisulfite Flag samples.
@@ -41,7 +29,11 @@
 # -t, --target_removal_flag: (Required) Path(s) to the CSV file(s) for Target Removal Flag samples.
 # -G, --rgset: (Required) Path to the RGChannelSet .Rdata file (e.g., 'RGset.Rdata').
 # -P, --pca_vars: (Required) Space-separated list of variables from RGset@colData to use for PCA coloring and pie charts.
+# -d, --detectionP_flag : (Required) Path(s) to the CSV file(s) for detection P value Flag samples (required).
+# -x, --sexmismatch_flag : (Required) Path(s) to the CSV file(s) for sex mismatch Flag samples (required).
+# -f, --min_flag_overlap: (Required) Minimum number of overlapping flags required to filter a sample (required).
 # -a, --additional: (Optional) Path(s) to additional CSV file(s) for samples.
+
 
 # Output:
 # 1. sample_QC_overview.csv: A CSV file containing a summary table.
@@ -59,11 +51,13 @@ suppressPackageStartupMessages({
 library(optparse)
 library(ggplot2)
 library(minfi)
+library(UpSetR)
 library(grid) 
 library(methods) 
 library(reshape2) 
 library(dplyr)
 library(ggrepel)
+library(IlluminaHumanMethylation450kmanifest)
   }, error = function(e) {
     stop("Package loading failed: ", e$message, call. = FALSE)
   })
@@ -86,12 +80,21 @@ option_list <- list(
               help = "Path(s) to the CSV file(s) for Staining Flag samples (required)."),
   make_option(c("-t", "--target_removal_flag"), type = "character", default = NULL,
               help = "Path(s) to the CSV file(s) for Target Removal Flag samples (required)."),
-  make_option(c("-G", "--rgset"), type = "character", default = NULL,
-              help = "Path to the RGChannelSet .Rdata file (e.g., 'RGset.Rdata') (required)."),
-  make_option(c("-P", "--pca_vars"), type = "character", default = NULL,
-              help = "Space-separated list of variables from RGset@colData to use for PCA coloring and pie charts (required)."),
+  make_option(c("-d", "--detectionP_flag"), type = "character", default = NULL,
+              help = "Path(s) to the CSV file(s) for detection P value Flag samples (required)."),
+  make_option(c("-x", "--sexmismatch_flag"), type = "character", default = NULL,
+              help = "Path(s) to the CSV file(s) for sex mismatch Flag samples (required)."),
   make_option(c("-a", "--additional"), type = "character", default = NULL,
               help = "Path(s) to an optional CSV file(s) for Additional samples."),
+
+  make_option(c("-G", "--rgset"), type = "character", default = NULL,
+              help = "Path to the RGChannelSet .Rdata file (e.g., 'RGset.Rdata') (required)."),
+
+  make_option(c("-P", "--pca_vars"), type = "character", default = NULL,
+              help = "Space-separated list of variables from RGset@colData to use for PCA coloring and pie charts (required)."),
+  make_option(c("-f", "--min_flag_overlap"), type = "character", default = NULL,
+              help = "Minimum number of overlapping flags required to filter a sample (required)."),
+
   make_option(c("-o", "--output_csv_name"), type = "character", default = NULL,
               help = "Name for the output CSV file (required)."),
   make_option(c("-p", "--output_plot_name"), type = "character", default = NULL,
@@ -107,8 +110,8 @@ opt <- parse_args(opt_parser)
 # Check if all required arguments are provided
 required_flags <- c("bisulfite_flag", "nonpolymeric_flag", "specificity_flag",
                     "extension_flag", "hybridisation_flag", "staining_flag",
-                    "target_removal_flag", "rgset", "pca_vars",
-                    "output_csv_name", "output_plot_name")
+                    "target_removal_flag","detectionP_flag", "sexmismatch_flag",
+                    "rgset", "pca_vars","output_csv_name", "output_plot_name")
 
 for (flag in required_flags) {
   if (is.null(opt[[flag]])) {
@@ -174,6 +177,8 @@ flag_category_map <- list(
   hybridisation_flag = "Hybridisation",
   staining_flag = "Staining",
   target_removal_flag = "Target_Removal",
+  detectionP_flag = "Detection_Pvalue",
+  sexmismatch_flag = "Sex_Mismatch",
   additional = "Additional"
 )
 
@@ -217,30 +222,54 @@ message(paste("Sample QC overview saved to:", output_csv_filename))
 output_plot_filename <- opt$output_plot_name
 pdf(output_plot_filename, width = 12, height = 8) # Open PDF device for all plots
 
+flag_cols <- names(sample_qc_df)[!names(sample_qc_df) %in% c("Sample", "Total_Occurrences")]
 
+# Apply `as.numeric` to convert these columns from character/logical to numeric (0 or 1)
+sample_qc_df[flag_cols] <- lapply(sample_qc_df[flag_cols], as.numeric)
 
-# 1. Bar Plot: Samples vs. Total Occurrences
-message("Generating Bar Plot...")
+# Clean up flag column names for better readability in the UpSet plot.
+# This removes the "Flagged_" prefix and ".csv" suffix, and replaces underscores with spaces.
+cleaned_flag_cols <- gsub("Flagged_|.csv", "", flag_cols)
+cleaned_flag_cols <- gsub("_", " ", cleaned_flag_cols)
+names(sample_qc_df)[match(flag_cols, names(sample_qc_df))] <- cleaned_flag_cols
+
+message("Generate UpSet Plot...")
+
+# Generate the UpSet Plot
+# The UpSet plot is designed to show the intersections of multiple sets (your QC flags).
+# - The top bars represent the size of each *intersection* (i.e., how many samples fall into that specific combination of flags).
+# - The dots and lines matrix below indicates which flags are part of each intersection.
+# - The bars on the left show the total number of samples affected by *each individual flag* (set size).
 tryCatch({
-  if (nrow(sample_qc_df) > 0) {
-    p_bar <- ggplot(sample_qc_df, aes(x = reorder(Sample, -Total_Occurrences), y = Total_Occurrences)) +
-      geom_bar(stat = "identity", fill = "steelblue") +
-      theme_minimal() +
-      labs(title = "Total QC Flags per Sample",
-           x = "Sample",
-           y = "Number of Flags") +
-      theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 8),
-            plot.title = element_text(hjust = 0.5, face = "bold"))
-    print(p_bar)
+  if (nrow(sample_qc_df) > 0 && length(cleaned_flag_cols) > 0) {
+    # Specify which columns in your data frame are the 'sets' for the UpSet plot
+    sets_to_plot <- cleaned_flag_cols
+
+    # Create the UpSet plot
+    print(upset(
+      sample_qc_df,               # Your data frame containing 0s and 1s for flags
+      sets = sets_to_plot,        # The names of the columns to treat as sets
+      main.bar.color = "steelblue", # Color for the main intersection bars (top)
+      sets.bar.color = "darkgreen", # Color for the individual set size bars (left)
+      matrix.color = "darkblue",    # Color for the dots in the intersection matrix
+      point.size = 2.5,             # Size of the dots in the matrix
+      line.size = 1,                # Thickness of the lines connecting dots in the matrix
+      text.scale = c(1.3, 1.3, 1, 1, 1.5, 1.2), # Adjust font sizes for different plot elements
+      order.by = "freq",            # Order intersections by their frequency (most common first)
+      empty.intersections = "on",   # Include combinations that have zero samples
+      mainbar.y.label = "Intersection Size (Number of Samples)", # Y-axis label for top bars
+      sets.x.label = "Set Size (Total Samples per Flag)" # X-axis label for left bars
+    ))
+
+    message("UpSet Plot generated successfully.")
+
   } else {
-    warning("No samples found for bar plot.")
-    grid.newpage()
-    grid.text("No samples available to generate bar plot.", gp = gpar(col = "red"))
+    warning("No samples or flag columns found for UpSet plot.")
+    message("Please ensure 'sample_qc_df' has rows and relevant flag columns (e.g., 'Flagged_...csv').")
   }
 }, error = function(e) {
-  message("Error generating Bar Plot: ", e$message)
-  grid.newpage()
-  grid.text(paste("Error generating Bar Plot:", e$message), gp = gpar(col = "red"))
+  message("Error generating UpSet Plot: ", e$message)
+  message("Please check your data and ensure 'UpSetR' is installed and loaded correctly.")
 })
 
 
@@ -262,16 +291,17 @@ tryCatch({
 
   # Identify samples flagged at least twice based on sample_qc_df
   # These are the samples to EXCLUDE from PCA
-  flagged_samples <- sample_qc_df$Sample[sample_qc_df$Total_Occurrences >= 2]
-  occurrences_count <- sample_qc_df$Total_Occurrences[sample_qc_df$Total_Occurrences >= 2]
+  min_flag_overlap <- as.numeric(opt$min_flag_overlap)
+  flagged_samples <- sample_qc_df$Sample[sample_qc_df$Total_Occurrences >= min_flag_overlap]
+  occurrences_count <- sample_qc_df$Total_Occurrences[sample_qc_df$Total_Occurrences >= min_flag_overlap]
   names(occurrences_count) <- flagged_samples
 
   message(paste("Found", length(flagged_samples), "samples flagged at least twice (will be highlighted in the PCA)."))
 
   if (length(pca_vars) == 0) {
-    warning("No valid PCA variables remaining after checking RGset@colData for samples not flagged >= 2 times. Skipping PCA.")
+    warning("No valid PCA variables remaining after checking RGset@colData for samples not flagged >= ",min_flag_overlap," times. Skipping PCA.")
     grid.newpage()
-    grid.text("No valid PCA variables for plotting samples not flagged >= 2 times.", gp = gpar(col = "red"))
+    grid.text("No valid PCA variables for plotting samples not flagged >= ",min_flag_overlap," times.", gp = gpar(col = "red"))
   } else {
     # Principal Components Analysis (PCA) plot (color flagged samples)
     message("Generating PCA Plots for samples not flagged at least twice...")
@@ -333,16 +363,16 @@ tryCatch({
       print(pcaplot)
 
     }, error = function(e) {
-      message("Error creating PCA plot for samples not flagged >= 2 times: ", e$message)
+      message("Error creating PCA plot for samples not flagged >= ",min_flag_overlap," times: ", e$message)
       grid.newpage()
-      grid.text(paste("Error displaying PCA plot for samples not flagged >= 2 times:", e$message),
+      grid.text(paste("Error displaying PCA plot for samples not flagged >= ",min_flag_overlap," times:", e$message),
                 gp = gpar(col = "red"))
     })
   }}) 
 
 
   tryCatch({
-    # Pie Charts for flagged samples (>= 2 times)
+    # Pie Charts for flagged samples (>= min_flag_overlap times)
     message("Generating Pie Charts for samples flagged at least twice...")
     # Check if RGset@colData contains the required PCA variables
     pca_vars <- pca_vars[pca_vars %in% colnames(RGset@colData)]
