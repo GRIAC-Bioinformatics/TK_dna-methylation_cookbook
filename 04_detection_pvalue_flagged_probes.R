@@ -109,25 +109,26 @@ tryCatch({
   message("Detection p-values calculated successfully.")
 
   PassProbeDF <- data.frame("Fraction" = rowSums(detP < opt$cutoff)/ncol(detP))
-  failed.probes <- data.frame("FailedProbes" = names(which(rowSums(detP < opt$cutoff) < opt$threshold)))
+  failed.probes <- data.frame("FailedProbes" = names(which(rowSums(detP < opt$cutoff)/ncol(detP) < opt$threshold)))
 
   # Open PDF for plotting
   pdf(opt$pdf, width = 10, height = 7)
   message("Generating detection p-value plots...")
-  ggplot(PassProbeDF, aes(x = Fraction)) +
-    geom_histogram(binwidth = 0.01, fill = "blue", color = "black") +
-    labs(title = "Distribution of number of samples in which each probes passes the detection P-value cutoff",
-         subtitle = paste0("Cutoff: ", opt$cutoff, " (red line indicates threshold)\n",
-                          "Probes passing the cutoff in at least ", opt$threshold * 100, "% of samples are retained"),
-         x = "Fraction of Samples Passing Cutoff",
-         y = "Number of Probes") +
-    theme_minimal() + 
-    geom_vline(xintercept = opt$threshold, color = "red", linetype = "dashed") +
-    annotate("text", x = opt$threshold, y = max(table(PassProbeDF$Fraction)), 
-             label = paste0("Cutoff ",opt$threshold), color = "red", vjust = -1)
+  print(ggplot(PassProbeDF, aes(x = Fraction)) +
+      geom_histogram(binwidth = 0.1, fill = "blue", color = "black") + # Changed binwidth to 0.1
+      labs(title = "Distribution of number of samples in which each probes passes the detection P-value cutoff",
+          subtitle = paste0("Cutoff: ", opt$cutoff, " (red line indicates threshold)\n",
+                            "Probes passing the cutoff in at least ", opt$threshold * 100, "% of samples are retained"),
+          x = "Fraction of Samples Passing Cutoff",
+          y = "Number of Probes") +
+      theme_minimal() +
+      scale_x_log10() + # Added log scale for x-axis
+      geom_vline(xintercept = opt$threshold, color = "red", linetype = "dashed") +
+      annotate("text", x = opt$threshold, y = max(table(PassProbeDF$Fraction)),
+              label = paste0("Cutoff ",opt$threshold), color = "red", vjust = -1))
 
   dev.off()
-  
+
   message("Filtering probes based on detection p-values...")
   
   # Create a data frame for flagged samples and save to CSV
