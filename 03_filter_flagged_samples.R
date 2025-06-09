@@ -87,54 +87,54 @@ for (file_path in input_rdata_paths) {
 }
 
 
-# ### Identify Samples to Exclude
+### Identify Samples to Exclude
 
-# # Read the sample QC CSV file into a data frame
-# flagged_samples_df <- read.csv(opt$sample_qc_file, header = TRUE, stringsAsFactors = FALSE)
+# Read the sample QC CSV file into a data frame
+flagged_samples_df <- read.csv(opt$sample_qc_file, header = TRUE, stringsAsFactors = FALSE)
 
-# # Filter the data frame to get samples where 'Total_Occurrences' is 2 or more
-# flagged_samples_to_exclude <- flagged_samples_df[flagged_samples_df$Total_Occurrences >= as.numeric(opt$min_flag_overlap), ]$Sample
+# Filter the data frame to get samples where 'Total_Occurrences' is 2 or more
+flagged_samples_to_exclude <- flagged_samples_df[flagged_samples_df$Total_Occurrences >= as.numeric(opt$min_flag_overlap), ]$Sample
 
-# # Provide a summary message about the samples identified for exclusion
-# if (length(flagged_samples_to_exclude) == 0) {
-#   message("No samples were flagged for exclusion based on 'Total_Occurrences' >= ",min_flag_overlap,".")
-# } 
+# Provide a summary message about the samples identified for exclusion
+if (length(flagged_samples_to_exclude) == 0) {
+  message("No samples were flagged for exclusion based on 'Total_Occurrences' >= ",min_flag_overlap,".")
+} 
 
-# ### Filter Each R Data Object
+### Filter Each R Data Object
 
-# # Iterate through each specified R data file
-# for (object_name in names(input_rdata_paths)) {
-#     file_path <- input_rdata_paths[[object_name]]
-#     message(paste("\nProcessing file:", file_path))
+# Iterate through each specified R data file
+for (object_name in names(input_rdata_paths)) {
+    file_path <- input_rdata_paths[[object_name]]
+    message(paste("\nProcessing file:", file_path))
 
-#     # Load the R data object into the current R environment.
-#     # This will create a variable (e.g., 'MSet', 'grSet') with the name 'object_name' in your R session.
-#     load(file_path)
+    # Load the R data object into the current R environment.
+    # This will create a variable (e.g., 'MSet', 'grSet') with the name 'object_name' in your R session.
+    load(file_path)
 
-#     # Get the loaded object dynamically by its name to perform operations
-#     current_object <- get(object_name)
+    # Get the loaded object dynamically by its name to perform operations
+    current_object <- get(object_name)
 
-#     # Determine the indices of samples to keep (i.e., those not present in the exclusion list)
-#     samples_to_keep_idx <- which(!sampleNames(current_object) %in% flagged_samples_to_exclude)
+    # Determine the indices of samples to keep (i.e., those not present in the exclusion list)
+    samples_to_keep_idx <- which(!sampleNames(current_object) %in% flagged_samples_to_exclude)
 
-#     # Subset the object to keep only the desired samples
-#     filtered_object <- current_object[, samples_to_keep_idx]
+    # Subset the object to keep only the desired samples
+    filtered_object <- current_object[, samples_to_keep_idx]
 
-#     # Construct the output file name by inserting the base suffix just before the '.RData' extension.
-#     # `tools::file_path_sans_ext` gets the filename without extension (e.g., "MSet").
-#     base_file_name <- tools::file_path_sans_ext(basename(file_path))
-#     output_file_name <- file.path(dirname(file_path), paste0(base_file_name, opt$base_suffix, ".RData"))
+    # Construct the output file name by inserting the base suffix just before the '.RData' extension.
+    # `tools::file_path_sans_ext` gets the filename without extension (e.g., "MSet").
+    base_file_name <- tools::file_path_sans_ext(basename(file_path))
+    output_file_name <- file.path(dirname(file_path), paste0(base_file_name, opt$base_suffix, ".RData"))
 
-#     # Save the filtered object to the new R data file
-#     save(filtered_object, file = output_file_name)
-#     message(paste("  Filtered and saved:", output_file_name))
+    # Save the filtered object to the new R data file
+    save(filtered_object, file = output_file_name)
+    message(paste("  Filtered and saved:", output_file_name))
 
-#     # Remove the loaded object from the environment tosave space
-#     # when loading the next file in the loop.
-#     rm(filtered_object)
-#     rm(list = object_name)
-#     gc() # Clean up memory
-# }
+    # Remove the loaded object from the environment tosave space
+    # when loading the next file in the loop.
+    rm(filtered_object)
+    rm(list = object_name)
+    gc() # Clean up memory
+}
 
 # message("\nSample filtering process completed for all specified R data files.")
 
