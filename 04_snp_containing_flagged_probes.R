@@ -9,7 +9,7 @@
 # An arbitrary decision has been made to filter out probes associated with SNPs having a Minor Allele Frequency (MAF) greater than 10%.
 
 # Usage:
-# Rscript 04_snp_containing_flagged_probes.R -g grSet_sample_filtered.Rdata -o low_beadcount_flagged_probes.csv -s 0.1
+# Rscript 04_snp_containing_flagged_probes.R -g grSet_sample_filtered.Rdata -o snp_containing_flagged_probes.csv -s 0.1
 
 # Command Line Options:
 #   -g, --grset              Path to the genomic ratio set file (.RData).
@@ -82,8 +82,7 @@ tryCatch({
 
   # Save the flagged probes
   message("Saving flagged probes to :", opt$output, "\n")
-  write.csv(data.frame(rownames(grSet_filtered)), file = opt$output, row.names = FALSE, 
-            col.names = "Flagged_Probes") 
+  write.csv(data.frame("Flagged_Probes" = rownames(grSet_filtered)), file = opt$output, row.names = FALSE) 
 
 }, error = function(e) {
   # messagech and report any errors
