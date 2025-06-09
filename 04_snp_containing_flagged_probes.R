@@ -82,7 +82,7 @@ tryCatch({
 
   # Save the flagged probes
   message("Saving flagged probes to :", opt$output, "\n")
-  write.csv(data.frame("Flagged_Probes" = rownames(grSet_filtered)), file = opt$output, row.names = FALSE) 
+  write.csv(data.frame("Flagged_Probes" = removed_probes), file = opt$output, row.names = FALSE) 
 
 }, error = function(e) {
   # messagech and report any errors
