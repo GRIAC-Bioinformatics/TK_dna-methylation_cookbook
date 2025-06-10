@@ -30,7 +30,7 @@ opt <- parse_args(opt_parser)
 
 # CSV file with flagged probes
 failed.probes <- read.csv(opt$probe_qc_file, stringsAsFactors= FALSE, header = TRUE)
-failed.probes <- rownames(failed.probes[failed.probes$Total_Occurrence < as.numeric(opt$min_flag_overlap),])
+failed.probes <- failed.probes[failed.probes$Total_Occurrence,]$X
 message(paste("Number of failed probes identified:", length(failed.probes)))
 
 # --- Function to load, filter, and save an RData object ---
@@ -69,48 +69,19 @@ process_minfi_object <- function(file_path, object_name, failed_probes_list, suf
 }
 
 # --- Process each specified RData file ---
-
-# Process MSet
-# The code for MSet was already provided and updated to use the helper function logic for consistency.
-if (!is.null(opt$mset) && file.exists(opt$mset)) {
-  message(paste("Loading MSet from:", opt$mset))
-  load(opt$mset)
-  MSet <- filtered_object # Assume 'filtered_object' is the name after load
-  rm(filtered_object)
-  
-  initial_probe_count_MSet <- nrow(MSet)
-  failed.probes.MSet <- which(rownames(MSet) %in% failed.probes)
-  MSet_filtered <- MSet[-failed.probes.MSet,]
-  
-  message(paste("Filtered MSet: Removed", 
-                initial_probe_count_MSet - nrow(MSet_filtered), 
-                "probes out of", initial_probe_count_MSet))
-
-  base_file_name_MSet <- tools::file_path_sans_ext(basename(opt$mset))
-  output_file_name_MSet <- file.path(dirname(opt$mset), paste0(base_file_name_MSet, opt$base_suffix, ".RData"))
-  
-  MSet <- MSet_filtered # Reassign the filtered object
-  save(MSet, file = output_file_name_MSet)
-  message(paste("Filtered and saved:", output_file_name_MSet))
-} else if (!is.null(opt$mset)) {
-  message(paste("Warning: File not found for MSet:", opt$mset, ". Skipping filtering for MSet."))
-} else {
-  message("No file path provided for MSet. Skipping filtering for MSet.")
-}
+# Process grSet
+process_minfi_object(opt$mset, "MSet_probe_filtered", failed.probes, opt$base_suffix)
 
 # Process grSet
-process_minfi_object(opt$mset, "MSet", failed.probes, opt$base_suffix)
-
-# Process grSet
-process_minfi_object(opt$grset, "grSet", failed.probes, opt$base_suffix)
+process_minfi_object(opt$grset, "grSet_probe_filtered", failed.probes, opt$base_suffix)
 
 # Process ratioSet
-process_minfi_object(opt$ratioset, "ratioSet", failed.probes, opt$base_suffix)
+process_minfi_object(opt$ratioset, "ratioSet_probe_filtered", failed.probes, opt$base_suffix)
 
 # Process RGset
-process_minfi_object(opt$rgset, "RGset", failed.probes, opt$base_suffix)
+process_minfi_object(opt$rgset, "RGset_probe_filtered", failed.probes, opt$base_suffix)
 
 # Process RGsetEXT
-process_minfi_object(opt$rgsetext, "RGsetEXT", failed.probes, opt$base_suffix)
+process_minfi_object(opt$rgsetext, "RGsetEXT_probe_filtered", failed.probes, opt$base_suffix)
 
 message("Script execution finished.")
