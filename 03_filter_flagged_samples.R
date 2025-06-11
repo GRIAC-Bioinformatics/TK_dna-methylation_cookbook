@@ -102,41 +102,48 @@ if (length(flagged_samples_to_exclude) == 0) {
 
 ### Filter Each R Data Object
 
-# Iterate through each specified R data file
-for (object_name in names(input_rdata_paths)) {
-    file_path <- input_rdata_paths[[object_name]]
-    message(paste("\nProcessing file:", file_path))
+process_minfi_object <- function(file_path, object_name, samples_to_exclude, base_suffix) {
+  message(paste("\nProcessing file:", file_path))
 
-    # Load the R data object into the current R environment.
-    # This will create a variable (e.g., 'MSet', 'grSet') with the name 'object_name' in your R session.
-    load(file_path)
+  # Load the R data object. It will create a variable with 'object_name' (e.g., 'MSet').
+  load(file_path)
 
-    # Get the loaded object dynamically by its name to perform operations
-    current_object <- get(object_name)
+  # Get the loaded object dynamically by its name.
+  current_object <- get(object_name)
 
-    # Determine the indices of samples to keep (i.e., those not present in the exclusion list)
-    samples_to_keep_idx <- which(!sampleNames(current_object) %in% flagged_samples_to_exclude)
+  # Determine the indices of samples to keep.
+  samples_to_keep_idx <- which(!sampleNames(current_object) %in% samples_to_exclude)
 
-    # Subset the object to keep only the desired samples
-    filtered_object <- current_object[, samples_to_keep_idx]
+  # Subset the object to keep only the desired samples.
+  # Assign it directly back to the original object_name variable.
+  assign(object_name, current_object[, samples_to_keep_idx])
 
-    # Construct the output file name by inserting the base suffix just before the '.RData' extension.
-    # `tools::file_path_sans_ext` gets the filename without extension (e.g., "MSet").
-    base_file_name <- tools::file_path_sans_ext(basename(file_path))
-    output_file_name <- file.path(dirname(file_path), paste0(base_file_name, opt$base_suffix, ".RData"))
+  # Construct the output file name.
+  base_file_name <- tools::file_path_sans_ext(basename(file_path))
+  output_file_name <- file.path(dirname(file_path), paste0(base_file_name, base_suffix, ".RData"))
 
-    # Save the filtered object to the new R data file
-    save(filtered_object, file = output_file_name)
-    message(paste("  Filtered and saved:", output_file_name))
-
-    # Remove the loaded object from the environment tosave space
-    # when loading the next file in the loop.
-    rm(filtered_object)
-    rm(list = object_name)
-    gc() # Clean up memory
+  # Save the *modified* object (which has the original 'object_name' variable name).
+  save(list = object_name, file = output_file_name)
+  message(paste("  Filtered and saved:", output_file_name))
 }
 
-# message("\nSample filtering process completed for all specified R data files.")
+
+# Process MSet
+process_minfi_object(opt$mset, "MSet", flagged_samples_to_exclude, opt$base_suffix)
+
+# Process grSet
+process_minfi_object(opt$grset, "grSet", flagged_samples_to_exclude, opt$base_suffix)
+
+# Process ratioSet
+process_minfi_object(opt$ratioset, "ratioSet", flagged_samples_to_exclude, opt$base_suffix)
+
+# Process RGset
+process_minfi_object(opt$rgset, "RGset", flagged_samples_to_exclude, opt$base_suffix)
+
+# Process RGsetEXT
+process_minfi_object(opt$rgsetext, "RGsetEXT", flagged_samples_to_exclude, opt$base_suffix)
+
+message("\nSample filtering process completed for all specified R data files.")
 
 ## Overall distributions of Beta values for each sample
 # Here we expect beta values presenting values close to zero or one. 
@@ -177,28 +184,18 @@ tryCatch({
     rm(beta_original_matrix)
 
     # --- Load the filtered_object (which will be renamed to MSet) ---
-    filtered_mset_path <- file.path(dirname(file_path), paste0(tools::file_path_sans_ext(basename(opt$mset)), opt$base_suffix, ".RData"))
+    filtered_mset_path <- file.path(dirname(opt$mset), paste0(tools::file_path_sans_ext(basename(opt$mset)), opt$base_suffix, ".RData"))
+
     message(paste("Loading filtered MSet object from:", filtered_mset_path))
 
     load(filtered_mset_path) 
 
-    # Will be loaded as filtered_object 
-    if (!exists("filtered_object")) {
-        stop("Error: 'filtered_object' not found after loading filtered object file.")
-    }
-
-    # Rename filtered_object to MSet
-    MSet_filtered <- filtered_object
-
-    # Remove the intermediate filtered_object to free memory
-    rm(filtered_object)
-
     # Extract beta values for the filtered MSet
-    beta_filtered_matrix <- getBeta(MSet_filtered, offset = 100)
+    beta_filtered_matrix <- getBeta(MSet, offset = 100)
     message("Successfully extracted beta values from filtered MSet.")
 
     # Remove the filtered MSet object as its beta values are now extracted
-    rm(MSet_filtered)
+    rm(MSet)
 
     # Plot density plot
     print(minfi::densityPlot(
