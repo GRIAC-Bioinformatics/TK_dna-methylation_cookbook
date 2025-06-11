@@ -19,9 +19,7 @@ option_list <- list(
   make_option(c("-E", "--rgsetext"), type = "character", default = NULL,
               help = "Path to the RGsetEXT.RData file"),
   make_option(c("-b", "--base_suffix"), type = "character", default = "_probe_filtered",
-              help = "Suffix to add to output file names (e.g., '_filtered'). Default is '_probe_filtered'."),
-  make_option(c("-f", "--min_flag_overlap"), type = "character", default = NULL,
-              help = "Minimum number of overlapping flags required to filter a probe (required).")
+              help = "Suffix to add to output file names (e.g., '_filtered'). Default is '_probe_filtered'.")
 )
 
 opt_parser <- OptionParser(option_list = option_list)
@@ -30,11 +28,11 @@ opt <- parse_args(opt_parser)
 
 # CSV file with flagged probes
 failed.probes <- read.csv(opt$probe_qc_file, stringsAsFactors= FALSE, header = TRUE)
-failed.probes <- failed.probes[failed.probes$Total_Occurrence,]$X
+failed.probes <- failed.probes$X
 message(paste("Number of failed probes identified:", length(failed.probes)))
 
 # --- Function to load, filter, and save an RData object ---
-process_minfi_object <- function(file_path, object_name, failed_probes_list, suffix) {
+process_minfi_object <- function(file_path, object_name, failed.probes, suffix) {
   if (!is.null(file_path) && file.exists(file_path)) {
     message(paste("Loading", object_name, "from:", file_path))
     # Load the object. It will be named 'filtered_object' due to how it was likely saved previously.
@@ -46,7 +44,7 @@ process_minfi_object <- function(file_path, object_name, failed_probes_list, suf
 
     # Filter the object by removing failed probes
     initial_probe_count <- nrow(current_object)
-    probes_to_remove_indices <- which(rownames(current_object) %in% failed_probes_list)
+    probes_to_remove_indices <- which(rownames(current_object) %in% failed.probes)
     current_object_filtered <- current_object[-probes_to_remove_indices,]
     
     message(paste("Filtered", object_name, ": Removed", 
@@ -70,18 +68,18 @@ process_minfi_object <- function(file_path, object_name, failed_probes_list, suf
 
 # --- Process each specified RData file ---
 # Process grSet
-process_minfi_object(opt$mset, "MSet_probe_filtered", failed.probes, opt$base_suffix)
+process_minfi_object(opt$mset, "MSet", failed.probes, opt$base_suffix)
 
 # Process grSet
-process_minfi_object(opt$grset, "grSet_probe_filtered", failed.probes, opt$base_suffix)
+process_minfi_object(opt$grset, "grSet", failed.probes, opt$base_suffix)
 
 # Process ratioSet
-process_minfi_object(opt$ratioset, "ratioSet_probe_filtered", failed.probes, opt$base_suffix)
+process_minfi_object(opt$ratioset, "ratioSet", failed.probes, opt$base_suffix)
 
 # Process RGset
-process_minfi_object(opt$rgset, "RGset_probe_filtered", failed.probes, opt$base_suffix)
+process_minfi_object(opt$rgset, "RGset", failed.probes, opt$base_suffix)
 
 # Process RGsetEXT
-process_minfi_object(opt$rgsetext, "RGsetEXT_probe_filtered", failed.probes, opt$base_suffix)
+process_minfi_object(opt$rgsetext, "RGsetEXT", failed.probes, opt$base_suffix)
 
 message("Script execution finished.")
