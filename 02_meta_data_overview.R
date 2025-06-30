@@ -63,15 +63,19 @@ option_list <- list(
 opt_parser <- OptionParser(option_list=option_list)
 opt <- parse_args(opt_parser)
 
-# Check for required input
-if (is.null(opt$input)) {
-  print_help(opt_parser)
-  stop("Input file must be specified (-i or --input)", call.=FALSE)
+required_args <- c("input", "pca", "stackbarplot", "platecol", "slidecol", "output")
+
+for (arg_name in required_args) {
+  if (is.null(opt[[arg_name]])) {
+    # If a required argument is NULL (not provided), print help and stop
+    print_help(opt_parser)
+    stop(paste("Error: Required argument --", arg_name, " is missing.", sep = ""))
+  }
 }
 
-# Verify input file exists
+# Check if the input file exists
 if (!file.exists(opt$input)) {
-  stop(paste("Input file not found:", opt$input), call.=FALSE)
+  stop(paste("Error: Input file '", opt$input, "' not found.", sep = ""))
 }
 
 message("Loading RGset data from: ", opt$input)
@@ -79,22 +83,62 @@ message("Loading RGset data from: ", opt$input)
 # Load the RGset data
 load(opt$input)
 
-# Verify the loaded object
-if (!exists("RGset") || !inherits(RGset, "RGChannelSet")) {
-  stop("The loaded object is not an RGChannelSet or is not named 'RGset'", call.=FALSE)
+# Colnames
+available_col_names <- colnames(RGset@colData)
+
+# Validate --platecol
+if (!(opt$platecol %in% available_col_names)) {
+  stop(paste("Error: Specified plate column '", opt$platecol, "' not found in RGset colData. Available columns: ", 
+             paste(available_col_names, collapse = ", "), sep = ""))
 }
 
-if (!is.null(opt$pca)) {
-  pca_vars <- unlist(strsplit(opt$pca, ","))
-} else {
-  stop("No PCA variables provided. Use -p var1,var2 ...")
+# Validate --slidecol
+if (!(opt$slidecol %in% available_col_names)) {
+  stop(paste("Error: Specified slide column '", opt$slidecol, "' not found in RGset colData. Available columns: ", 
+             paste(available_col_names, collapse = ", "), sep = ""))
 }
 
-if (!is.null(opt$stackbarplot)) {
-  stackbar_vars <- unlist(strsplit(opt$stackbarplot, ","))
-} else {
-  stackbar_vars <- NULL
+# Validate --pca format and variables
+pca_vars <- unlist(strsplit(opt$pca, ","))
+if (length(pca_vars) == 0) {
+  stop("Error: --pca argument cannot be empty. Please provide comma-separated variables.")
 }
+
+invalid_pca_vars <- pca_vars[!(pca_vars %in% available_col_names)]
+if (length(invalid_pca_vars) > 0) {
+  stop(paste("Error: Invalid PCA variable(s) found: '", paste(invalid_pca_vars, collapse = ", "), 
+             "'. These are not in RGset colData. Available columns: ", paste(available_col_names, collapse = ", "), sep = ""))
+}
+
+# Validate --stackbarplot format and variables
+stack_barplot_pairs_str <- unlist(strsplit(opt$stackbarplot, ","))
+if (length(stack_barplot_pairs_str) == 0) {
+  stop("Error: --stackbarplot argument cannot be empty. Please provide comma-separated pairs (e.g., var1:var2).")
+}
+
+for (pair_str in stack_barplot_pairs_str) {
+  parts <- unlist(strsplit(pair_str, ":"))
+  
+  if (length(parts) != 2) {
+    stop(paste("Error: Invalid --stackbarplot format for '", pair_str, "'. Expected 'grouping_variable:plotting_variable'.", sep = ""))
+  }
+  
+  grouping_var <- parts[1]
+  plotting_var <- parts[2]
+  
+  if (!(grouping_var %in% available_col_names)) {
+    stop(paste("Error: Grouping variable '", grouping_var, "' in --stackbarplot pair '", pair_str, 
+               "' not found in RGset colData. Available columns: ", paste(available_col_names, collapse = ", "), sep = ""))
+  }
+  
+  if (!(plotting_var %in% available_col_names)) {
+    stop(paste("Error: Plotting variable '", plotting_var, "' in --stackbarplot pair '", pair_str, 
+               "' not found in RGset colData. Available columns: ", paste(available_col_names, collapse = ", "), sep = ""))
+  }
+}
+
+# --- All Validations Passed ---
+message("All command-line arguments and data validations passed successfully. Proceeding with analysis.")
 
 message("Creating output PDF: ", opt$output)
 
