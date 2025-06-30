@@ -29,8 +29,14 @@
 #                      Defaults to '_sample_filtered'.
 #   - The 'Total_Occurrences' threshold for flagging samples (>= 2) is hardcoded within the script.
 
+suppressPackageStartupMessages({
+  tryCatch({
 library(optparse)
-library(minfi) # Required for handling minfi objects like RGChannelSet, MethylSet, GenomicRatioSet
+library(minfi) 
+}, error = function(e) {
+    stop("Package loading failed: ", e$message, call. = FALSE)
+  })
+})
 
 # Parse command line arguments
 option_list <- list(
@@ -46,6 +52,8 @@ option_list <- list(
               help = "Path to the RGset.RData file"),
   make_option(c("-E", "--rgsetext"), type = "character", default = NULL,
               help = "Path to the RGsetEXT.RData file"),
+  make_option(c("-S", "--sigsetlist"), type = "character", default = NULL,
+              help = "Path to the SigSetList.RData file"),
   make_option(c("-b", "--base_suffix"), type = "character", default = "_sample_filtered",
               help = "Suffix to add to output file names (e.g., '_filtered'). Default is '_sample_filtered'."),
   make_option(c("-p", "--output_plot_name"), type = "character", default = NULL,
@@ -142,6 +150,34 @@ process_minfi_object(opt$rgset, "RGset", flagged_samples_to_exclude, opt$base_su
 
 # Process RGsetEXT
 process_minfi_object(opt$rgsetext, "RGsetEXT", flagged_samples_to_exclude, opt$base_suffix)
+
+# Process SigSetList
+tryCatch({
+    message("\nProcessing SigSetList object...")
+
+    # Load the SigSetList object
+    load(opt$sigsetlist)
+
+    if (!exists("SigSetList")) {
+        stop("Error: 'SigSetList' object not found after loading.")
+    }
+
+    message("SigSetList loaded successfully. Number of samples in SigSetList: ", length(SigSetList))
+
+    # Filter the SigSetList to exclude flagged samples
+    samples_to_include <- setdiff(names(SigSetList), flagged_samples_to_exclude)
+    message("Number of samples to keep in SigSetList: ", length(samples_to_include))
+
+    SigSetList <- SigSetList[samples_to_include]
+
+    # Save the filtered SigSetList
+    sigset_output_file <- file.path(dirname(opt$sigsetlist), paste0(tools::file_path_sans_ext(basename(opt$sigsetlist)), opt$base_suffix, ".RData"))
+    save(SigSetList, file = sigset_output_file)
+    message(paste("Filtered SigSetList saved to:", sigset_output_file))
+
+}, error = function(e) {
+    message("An error occurred while processing SigSetList: ", e$message)
+})
 
 message("\nSample filtering process completed for all specified R data files.")
 
