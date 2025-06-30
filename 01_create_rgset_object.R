@@ -35,14 +35,29 @@ suppressPackageStartupMessages({
 
 
 option_list <- list(
-  make_option(c("--basedir"), 
+  make_option(c("-b", "--basedir"), 
               type = "character",
               help = "Base directory containing IDAT files and sample sheet",
               metavar = "PATH"),
-  
-  make_option(c("--output"), 
+
+  make_option(c("-R", "--rg_channel_set_output"), 
               type = "character",
               help = "Output file path for RGChannelSet (.RData)",
+              metavar = "FILE"),
+  
+  make_option(c("-M", "--methyl_channel_set_output"), 
+              type = "character",
+              help = "Output file path for MethylChannelSet (.RData)",
+              metavar = "FILE"),
+  
+  make_option(c("-G", "--genomic_ratio_set_output"), 
+              type = "character",
+              help = "Output file path for GenomicRatioSet (.RData)",
+              metavar = "FILE"),
+  
+  make_option(c("-E", "--rg_channel_set_extended_output"), 
+              type = "character",
+              help = "Output file path for RGChannelSetExtended (.RData)",
               metavar = "FILE")
 )
 
@@ -50,11 +65,14 @@ opt_parser <- OptionParser(option_list = option_list)
 opt <- parse_args(opt_parser)
 
 # Validate required arguments
-if (is.null(opt$basedir) || is.null(opt$output)) {
-  print_help(opt_parser)
-  stop("Both --basedir and --output arguments must be provided.")
-}
+required_args <- c("basedir", "rg_channel_set_output", "methyl_channel_set_output", 
+                   "genomic_ratio_set_output", "rg_channel_set_extended_output")
 
+for (arg in required_args) {
+  if (is.null(opt[[arg]])) {
+    stop(paste("Error: Required argument --", arg, " is missing. Use --help for more information.", sep = ""))
+  }
+}
 
 # SAMPLE SHEET PROCESSING
 message("Reading sample sheet...")
@@ -106,7 +124,49 @@ RGset <- tryCatch({
 message("\nSaving RGChannelSet object...")
 
 tryCatch({
-  save(RGset, file = opt$output)
+  save(RGset, file = opt$rg_channel_set_output)
+}, error = function(e) {
+  stop("Failed to save output file: ", e$message)
+})
+
+message("\nSaved RGChannelSet object.")
+message("\nSaving MethylChannelSet object...")
+
+tryCatch({
+  MSet <- minfi::preprocessRaw(RGset)
+  save(MSet, file = opt$methyl_channel_set_output)
+}, error = function(e) {
+  stop("Failed to save output file: ", e$message)
+})
+
+message("\nSaved MethylChannelSet object.")
+message("\nRemoving RGChannelSet object to make judicial use of the space.")
+rm(RGset)
+
+message("\nSaving GenomicRatioSet object...")
+
+tryCatch({
+  ratioSet <- minfi::ratioConvert(MSet, what = "both", keepCN = TRUE)
+  grSet <- minfi::mapToGenome(ratioSet)
+  save(grSet, file = opt$genomic_ratio_set_output)
+}, error = function(e) {
+  stop("Failed to save output file: ", e$message)
+})
+
+message("\nSaved GenomicRatioSet object.")
+message("\nRemoving GenomicRatioSet object to make judicial use of the space.")
+rm(ratioSet,grSet)
+
+message("\nSaving RGChannelSetExtended object...")
+
+RGsetEXT <- tryCatch({
+  read.metharray.exp(targets = targets,extended = TRUE)
+}, error = function(e) {
+  stop("IDAT processing failed. Possible memory issues? Error: ", e$message)
+})
+
+tryCatch({
+  save(RGsetEXT, file = opt$rg_channel_set_extended_output)
 }, error = function(e) {
   stop("Failed to save output file: ", e$message)
 })
