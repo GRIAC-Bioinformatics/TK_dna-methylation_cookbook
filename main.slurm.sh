@@ -19,9 +19,9 @@ source ${PROJECT}/anaconda3/etc/profile.d/conda.sh
 ### 2. Activate your Conda environment ###
 conda activate dna-methylation
 
-### 3. Define variable ###
-SCRIPTDIR=${PROJECT}/projects/VB250630_piama_dna_methylation/TK_dna-methylation_cookbook/scripts
+### 3. Source config file ###
 source config.sh
+
 # Check if the OUTDIR exists
 if [ ! -d "${OUTDIR}" ]; then
   echo "Creating output directory: ${OUTDIR}"
