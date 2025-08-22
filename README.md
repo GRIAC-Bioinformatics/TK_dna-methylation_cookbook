@@ -72,8 +72,8 @@ This cookbook provides modular R scripts and a bash/SLURM workflow to help you p
 
 ### 1. Clone the repository
 ```
-git clone https://github.com/yourusername/methylation-qc-cookbook.git
-cd methylation-qc-cookbook
+git clone https://github.com/GRIAC-Bioinformatics/TK_dna-methylation_cookbook.git
+cd TK_dna-methylation_cookbook
 ```
 
 ### 2. Prepare environment
@@ -82,7 +82,7 @@ We recommend using the provided YAML environment file to ensure reproducibility.
 
 ```
 conda env create -f dna-methylation.yml
-conda activate methylation-qc
+conda activate dna-methylation
 ```
 
 ### 3. Configure
@@ -90,8 +90,8 @@ conda activate methylation-qc
 Edit config.sh to specify:
 
 - Platform (450K, EPIC, EPICv2)
-- Paths to your IDATs and metadata
-- Desired QC parameters
+- Assembly (hg19 or hg38)
+- Paths to your IDATs, metadata, manifest key ( data/manifest.annotation.key.csv ), output and logging directory
 
 ### 4. Run pipeline
 
