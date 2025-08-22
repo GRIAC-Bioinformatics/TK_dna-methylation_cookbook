@@ -1,31 +1,27 @@
 #!/usr/bin/env Rscript
-# meta.data.overview.R - Methylation Array Metadata Visualization Script
-#
+# =============================================================================
+# 02_meta_data_overview.R
 # Author: Vartika Bisht
-# Date:   20 May 2025
-#
-# Purpose: Generate comprehensive visual summaries of Illumina methylation array
-#          metadata including sample distributions across slides, arrays, plates,
-#          and wells. Provides quality control overviews for large-scale studies.
-#
-# Input:   RGset.RData file containing RGChannelSet object
-# Output:  PDF report with visualizations of sample metadata distributions
-#
-# Parameters:
-#   -i, --input    Path to input RGset.RData file (required)
-#   -p, --pca      Variables for PCA (space-separated, e.g., -p var1 var2 var3)
-#   -o, --output   Output PDF path [default: ./RGset_metadata_summary.pdf]
-# Rscript ${SCRIPTDIR}/02_meta_data_overview.R -i RGset.RData -o RGset_metadata_summary.pdf -p "Sample_Group,Sample_Plate,Sample_Well,Gender,Array,Slide" -l "Sample_Plate" -s "Slide" -b "Sample_Plate:Sample_Group,Sample_Plate:Gender,Slide:Sample_Group,Slide:Gender"
-#
-# Hierarchy Documentation:
-#   Slide:       Physical chip identifier (e.g., 6264488065)
-#   Array:       Position on slide (R01C01 = Row 01 Column 01)
-#   Sample_Plate: Processing plate identifier (e.g., MeDALL1)
-#   Sample_Well: Well position on plate (e.g., A01, B01)
-#
-# Note: Each sample is uniquely identified by the combination of:
-#       Slide + Array + Plate + Well identifiers
-#       (e.g., 6264488065 + R01C01 + MeDALL1 + A01)
+# Created: 13-Aug-2025
+# Description:
+# Generates comprehensive visual summaries of Illumina methylation array
+# metadata including sample distributions across slides, arrays, plates,
+# and wells. Provides quality control overviews for large-scale studies.
+# Arguments:
+#    --rgset           → Path to the RGChannelSet object file (.RData)
+#    --pca             → Comma-separated list of variables for PCA (e.g., var1,var2,var3)
+#    --stackbarplot    → Variables for stacked bar plots in the format grouping_variable:plotting_variable (e.g., var1:var2)
+#    --platecol        → Column name for plate information (default: "Plate")
+#    --slidecol        → Column name for slide information (default: "Slide")
+#    --output          → Output PDF file path
+# Usage:
+#   Rscript 02_meta_data_overview.R --rgset <FILE.RData> \
+#       --pca "Sample_ID,Plate" --stackbarplot "Slide:Plate" --output <output.pdf>
+# Notes:
+#   - This script requires a pre-processed RGChannelSet object as input.
+#   - It helps identify potential batch effects or technical biases related to
+#     sample processing and layout.
+# =============================================================================
 
 # Silent library loading and error handling
 suppressPackageStartupMessages({
@@ -45,13 +41,13 @@ suppressPackageStartupMessages({
 
 # Set up command line options
 option_list <- list(
-  make_option(c("-i", "--input"), type="character", default=NULL,
+  make_option(c("-r", "--rgset"), type="character", default=NULL,
               help="Path to RGset.RData file", metavar="FILE"),
   make_option(c("-p", "--pca"), type="character", default=NULL,
               help="Variables for PCA (comma-separated, e.g., -p var1,var2,var3)", metavar="VAR1,VAR2,..."),
   make_option(c("-b", "--stackbarplot"), type="character", default=NULL,
               help="Variables for stacked bar plots comparisons in the format grouping_variable:plotting_variable (comma-separated, e.g., -b var1:var2,var2:var3,var3:var4)", metavar="VAR1:VAR2,VAR2:VAR3,..."),
-  make_option(c("-l", "--platecol"), type="character", default="Sample_Plate",
+  make_option(c("-l", "--platecol"), type="character", default="Plate",
               help="Column name for plate information", metavar="STRING"),
   make_option(c("-s", "--slidecol"), type="character", default="Slide",
               help="Column name for slide information", metavar="STRING"),
@@ -63,7 +59,7 @@ option_list <- list(
 opt_parser <- OptionParser(option_list=option_list)
 opt <- parse_args(opt_parser)
 
-required_args <- c("input", "pca", "stackbarplot", "platecol", "slidecol", "output")
+required_args <- c("rgset", "pca", "stackbarplot", "platecol", "slidecol", "output")
 
 for (arg_name in required_args) {
   if (is.null(opt[[arg_name]])) {
@@ -73,15 +69,15 @@ for (arg_name in required_args) {
   }
 }
 
-# Check if the input file exists
-if (!file.exists(opt$input)) {
-  stop(paste("Error: Input file '", opt$input, "' not found.", sep = ""))
+# Check if the rgset file exists
+if (!file.exists(opt$rgset)) {
+  stop(paste("Error: rgset file '", opt$rgset, "' not found.", sep = ""))
 }
 
-message("Loading RGset data from: ", opt$input)
+message("Loading RGset data from: ", opt$rgset)
 
 # Load the RGset data
-load(opt$input)
+load(opt$rgset)
 
 # Colnames
 available_col_names <- colnames(RGset@colData)
@@ -149,22 +145,26 @@ pdf(opt$output,
     paper = "a4r")
 
 ## Enhanced function to create stacked bar plots
-create_stacked_barplot <- function(data, title, x_label = "", y_label = "Count") {
+create_stacked_barplot <- function(data, title, x_label = "", y_label = "Proportion") {
   tryCatch({
     # Convert data to long format for ggplot
     long_data <- as.data.frame(data) %>%
       tibble::rownames_to_column(var = "Category") %>%
       tidyr::gather(key = "Group", value = "Count", -Category)
     
-    # Create the plot
-    p <- ggplot(long_data, aes(x = Category, y = Count, fill = Group)) +
-      geom_bar(stat = "identity", position = "stack") +
-      labs(title = title, x = x_label, y = y_label) +
-      theme_minimal() +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1),
-            plot.title = element_text(hjust = 0.5, face = "bold"),
-            legend.position = "right") +
-      scale_fill_brewer(palette = "Dark2")
+    long_data_proportions <- long_data %>%
+      group_by(Category) %>% # Group by Category to calculate sum for each category
+      mutate(Proportion = Count / sum(Count)) %>% # Calculate proportion
+      ungroup()
+
+    p <- ggplot(data.frame(long_data_proportions), aes(x = Category, y = Proportion, fill = Group)) +
+          geom_bar(stat = "identity", position = "fill") + 
+          labs(title = title, x = x_label, y = y_label) +
+          theme_minimal() +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1),
+                plot.title = element_text(hjust = 0.5, face = "bold"),
+                legend.position = "right") +
+          scale_fill_brewer(palette = "Dark2") 
     
     # Print the plot
     grid.newpage()
@@ -281,48 +281,76 @@ tryCatch({
     PC2 = pca_result$x[, 2],
     as.data.frame(RGset@colData)[, pca_vars]
   )
-  
-  # Modified plotting function
-  plot_pca_by_variable <- function(data, variable) {
-    n_unique <- length(unique(data[[variable]]))
-    
-    if (n_unique > 8) {
-      # Plot text labels instead of points for high-cardinality variables
-      ggplot(data, aes(x = PC1, y = PC2, label = .data[[variable]])) +
-        geom_text(size = 3, alpha = 0.7, check_overlap = TRUE) +
-        labs(title = paste("PCA -", variable),
-             x = paste0("PC1 (", pca_var_per[1], "%)"),
-             y = paste0("PC2 (", pca_var_per[2], "%)")) +
-        theme_minimal() +
-        theme(legend.position = "none")
-    } else {
-      # Regular plot with points and legend for low-cardinality variables
-      ggplot(data, aes(x = PC1, y = PC2, color = .data[[variable]])) +
-        geom_point(alpha = 0.7) +
-        labs(title = paste("PCA colored by", variable),
-             x = paste0("PC1 (", pca_var_per[1], "%)"),
-             y = paste0("PC2 (", pca_var_per[2], "%)")) +
-        theme_minimal() +
-        theme(legend.position = "right") +
-        guides(color = guide_legend(nrow = 2, byrow = TRUE))
+
+  # Calculate variance explained by each principal component
+  pca_variance <- pca_result$sdev^2
+  explained_variance_ratio <- pca_variance / sum(pca_variance) * 100
+
+  # Create a data frame for the scree plot
+  scree_data <- data.frame(
+    PC = 1:10,
+    Variance_Explained = explained_variance_ratio[1:10]
+  )
+
+  # Generate the elbow (scree) plot
+  print(ggplot(scree_data, aes(x = PC, y = Variance_Explained)) +
+          geom_bar(stat = "identity", fill = "steelblue", alpha = 0.7) + # Bar plot for individual variance
+          geom_line(color = "red", size = 1) + # Line plot connecting points
+          geom_point(color = "red", size = 3) + # Points on the line
+          labs(
+            title = "Scree Plot: Percentage of Variance Explained by PCs", # Main title
+            x = "Principal Component",                                   # X-axis label
+            y = "Percentage of Variance Explained (%)"                   # Y-axis label
+          ) +
+          theme_minimal() + # Use a minimal theme
+          theme(
+            plot.title = element_text(hjust = 0.5, face = "bold", size = 16), # Center and style title
+            axis.title = element_text(size = 14),                             # Style axis titles
+            axis.text = element_text(size = 12)                               # Style axis text
+          ) +
+          scale_x_continuous(breaks = scree_data$PC))
+
+    # Modified plotting function
+    plot_pca_by_variable <- function(data, variable) {
+      n_unique <- length(unique(data[[variable]]))
+      
+      if (n_unique > 8) {
+        # Plot text labels instead of points for high-cardinality variables
+        ggplot(data, aes(x = PC1, y = PC2, label = .data[[variable]])) +
+          geom_text(size = 3, alpha = 0.7, check_overlap = TRUE) +
+          labs(title = paste("PCA -", variable),
+              x = paste0("PC1 (", pca_var_per[1], "%)"),
+              y = paste0("PC2 (", pca_var_per[2], "%)")) +
+          theme_minimal() +
+          theme(legend.position = "none")
+      } else {
+        # Regular plot with points and legend for low-cardinality variables
+        ggplot(data, aes(x = PC1, y = PC2, color = .data[[variable]])) +
+          geom_point(alpha = 0.7) +
+          labs(title = paste("PCA colored by", variable),
+              x = paste0("PC1 (", pca_var_per[1], "%)"),
+              y = paste0("PC2 (", pca_var_per[2], "%)")) +
+          theme_minimal() +
+          theme(legend.position = "right") +
+          guides(color = guide_legend(nrow = 2, byrow = TRUE))
+      }
     }
-  }
-  
-  # Create and display one plot per page
-  for (var in pca_vars) {
-    print(plot_pca_by_variable(plot_data, var))
-  }
-  
-}, error = function(e) {
-  message("Error creating PCA plot: ", e$message)
-  grid.newpage()
-  grid.text(paste("Error displaying PCA plot:", e$message), 
-            gp = gpar(col = "red"))
-})
+    
+    # Create and display one plot per page
+    for (var in pca_vars) {
+      print(plot_pca_by_variable(plot_data, var))
+    }
+    
+  }, error = function(e) {
+    message("Error creating PCA plot: ", e$message)
+    grid.newpage()
+    grid.text(paste("Error displaying PCA plot:", e$message), 
+              gp = gpar(col = "red"))
+  })
 
 plot_data_and_create_barplot <- function(rg_set, group_var, plot_var) {
   tryCatch({
-    # Split data by the grouping variable (e.g., Sample_Plate, Slide)
+    # Split data by the grouping variable (e.g., Plate, Slide)
     split_results <- lapply(split(rg_set@colData, rg_set@colData[[group_var]]),
                             function(x) table(x[[plot_var]]))
     
@@ -353,7 +381,7 @@ plot_data_and_create_barplot <- function(rg_set, group_var, plot_var) {
 }
 
 # Generate plots grouped by plate 
-for (var in stackbar_vars) {
+for (var in strsplit(opt$stackbarplot,",")[[1]]) {
   # x axis variable is the grouping variable
   group_var <- strsplit(var, ":")[[1]][1]
   # This is the variable to be plotted on y axis
