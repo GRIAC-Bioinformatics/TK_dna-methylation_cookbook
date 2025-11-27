@@ -92,7 +92,9 @@ for (file_path in input_rdata_paths) {
 ### Identify probes to Exclude
 
 # Read the probe QC CSV file into a data frame
-failed.probes <- read.csv(opt$flagged, header = TRUE)[[1]]
+failed.probes <- read.csv(opt$flagged, header = FALSE)[[1]]
+
+message(length(failed.probes), " probes to be excluded.")
 
 ### Filter Each R Data Object
 
