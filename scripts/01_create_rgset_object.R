@@ -211,7 +211,7 @@ rownames(RGsetEXT@colData) = RGsetEXT@colData$Sample_ID
 annotation(RGsetEXT)["array"] = manifest.key[manifest.key$platform == opt$platform & manifest.key$assembly == opt$assembly, ]$name_manifest
 annotation(RGsetEXT)["annotation"] = manifest.key[manifest.key$platform == opt$platform & manifest.key$assembly == opt$assembly, ]$name_annotation
 
-message("RGChannelSet object created. Now, saving RGChannelSet object...")
+message("RGChannelSetEXT object created. Now, saving RGChannelSetEXT object...")
 
 tryCatch({
   save(RGsetEXT, file = opt$rg_channel_set_extended_output)
