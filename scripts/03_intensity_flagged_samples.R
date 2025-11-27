@@ -79,7 +79,7 @@ tryCatch({
 
   message(length(bad_sample_idx) ," samples flagged due to their median intensity being < ",opt$cutoff," in both methylated and unmethylated channel.")
   message("Writing these sample IDs down in a CSV file : ",opt$flagged)
-  write.csv(data.frame(fagged = intersect(names(which(qc$mMed < opt$cutoff)), names(which(qc$uMed < opt$cutoff)))),
+  write.csv(data.frame(flagged = intersect(names(which(qc$mMed < opt$cutoff)), names(which(qc$uMed < opt$cutoff)))),
     file = opt$flagged, row.names = FALSE
   )
 
