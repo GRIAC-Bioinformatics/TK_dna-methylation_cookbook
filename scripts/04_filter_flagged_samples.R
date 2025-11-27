@@ -89,7 +89,9 @@ for (file_path in input_rdata_paths) {
 ### Identify Samples to Exclude
 
 # Read the sample QC CSV file into a data frame
-flagged <- read.csv(opt$flagged, header = TRUE)[[1]]
+flagged <- read.csv(opt$flagged, header = FALSE)[[1]]
+
+message(length(flagged), " samples to be excluded.")
 
 ### Filter Each R Data Object
 
