@@ -140,6 +140,8 @@ probe_groups = controlprobes[controlprobes$Type == ctrl &controlprobes$Color != 
 probe_groups$ExtendedType <- substr(probe_groups$ExtendedType,5,5)
 colnames(probe_groups) <- c("address", "control_type", "color_label", "base")
 probe_groups$expected_channel = ifelse(probe_groups$base %in% c("A","T"),"Red","Green")
+probe_groups <- data.frame(probe_groups)
+probe_groups$address <- as.numeric(probe_groups$address)
 
 # Merge with your intensity data
 ctrlData <- ctrlData %>%
