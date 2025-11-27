@@ -293,6 +293,9 @@ Rscript ${SCRIPTDIR}/06_probe_qc_overview.R  --flaggedcombined ${OUTDIR}/flag/al
 # but is assumed to be done by the user manually or by another script.
 # This is to ensure that the user has control over which probes to exclude.
 # As the reason to exclude probes can vary, it is not hardcoded in the script.
+# In R : 
+#  probes = data.frame("V1" = unique(unlist(lapply(list.files(dir), function(x) read.csv(x,header=T,stringsAsFactors=T)[[1]]))) )
+#  write.table(probes,"exclude_probes.csv",row.names=F,col.names=F,quote=F)
 
 # Flagged sample filter #
 Rscript ${SCRIPTDIR}/06_filter_flagged_probes.R --rgset ${OUTDIR}/rdata/RGChannelSet_sample_filtered.RData \
