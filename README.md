@@ -13,9 +13,12 @@ This cookbook provides modular R scripts and a bash/SLURM workflow to help you p
 
 ## 📂 Repository Structure
 ```
-├── README.md
 ├── config.sh
+├── LICENSE
+├── main.slurm.sh
+├── README.md
 ├── data
+│   ├── EPICV2_probes_950K_CrossHybridization.csv
 │   ├── idat
 │   │   ├── 9374343009
 │   │   │   ├── GSM8533627_9374343009_R04C02_Grn.idat
@@ -25,7 +28,8 @@ This cookbook provides modular R scripts and a bash/SLURM workflow to help you p
 │   │   └── readme.sh
 │   ├── manifest.annotation.key.csv
 │   └── metadatasheet.csv
-├── main.slurm.sh
+├── env
+│   └── dna-methylation.yml
 └── scripts
     ├── 00_check_my_input.R
     ├── 01_create_rgset_object.R
@@ -46,9 +50,11 @@ This cookbook provides modular R scripts and a bash/SLURM workflow to help you p
     ├── 05_detection_pvalue_flagged_probes.R
     ├── 05_high_intensity_flagged_probes.R
     ├── 05_low_beadcount_flagged_probes.R
+    ├── 05_sex_chromosome_probes.R
     ├── 05_snp_containing_flagged_probes.R
     ├── 06_filter_flagged_probes.R
     └── 06_probe_qc_overview.R
+
 ```
 
 <details>
