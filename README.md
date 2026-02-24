@@ -77,7 +77,7 @@ This cookbook provides modular R scripts and a bash/SLURM workflow to help you p
 ## 🚀 Getting Started
 
 ### 1. Clone the repository
-```
+```shell
 git clone https://github.com/GRIAC-Bioinformatics/TK_dna-methylation_cookbook.git
 cd TK_dna-methylation_cookbook
 ```
@@ -86,28 +86,71 @@ cd TK_dna-methylation_cookbook
 
 We recommend using the provided YAML environment file to ensure reproducibility.
 
-```
-conda env create -f dna-methylation.yml
+```shell
+conda env create -f env/dna-methylation.yml
 conda activate dna-methylation
 ```
+
+On HPC:
+```shell
+ml Anaconda3
+export CONDA_PKGS_DIRS=/groups/${choose_one_of_your_groups}/tmp02/some/example/folder/conda/packages/
+conda info
+
+conda env create -f env/dna-methylation.yml --prefix /groups/${choose_one_of_your_groups}/tmp02/some/example/folder/conda/environment/
+```
+
 
 ### 3. Configure
 
 Edit config.sh to specify:
 
 - Platform (450K, EPIC, EPICv2)
-- Assembly (hg19 or hg38)
+- Assembly (hg19 or hg38). EPICv2 is always hg38
 - Paths to your IDATs, metadata, manifest key ( data/manifest.annotation.key.csv ), output and logging directory
 
-### 4. Run pipeline
+### 4. Prepare metadata
+
+Create a metadata file that is similar to [metadata sheet](data/metadatasheet.csv). Make sure that the column headers match.
+
+For EPIC metadata, a conversion script is avalailble [here](scripts/helper_functions/convert_epic_samplesheet.R). 
+If it looks similar to:
+
+```
+[Header]
+Investigator Name,,XXXXXXXX
+Project Name,,XXXXXXXX
+Experiment Name,,
+Date,,XX_XX_XXXX
+
+
+[Data]
+Sample_Well,Sample_Name,Sample_Group,Sample_Plate,Sentrix_ID,Sentrix_Position,Project,Gender,Pool_ID
+A1,L101817420,,OV2300861CDNA03,209548820026,R01C01,S2025-71 EPIC,F,
+A1,FS57750722,,OV2300861CDNA04,209536060010,R01C01,S2025-71 EPIC,F,
+```
+
+Usage example:
+```shell
+chmod +x convert_epic_samplesheet.R
+
+./convert_epic_samplesheet.R \
+  --input /path/to/metadata.csv \
+  --output /path/to/output/metadatasheet.csv \
+  --basename-prefix /path/to/idats \
+  --check-files \
+  --stop-on-duplicate
+```
+
+### 5. Run pipeline
 
 If running on an HPC with SLURM:
-```
+```shell
 sbatch main.slurm.sh
 ```
 
 If running locally (without SLURM), remove the slurm specifications and simply execute:
-```
+```shell
 bash main.slurm.sh
 ```
 ## 🧩 Workflow Logic
