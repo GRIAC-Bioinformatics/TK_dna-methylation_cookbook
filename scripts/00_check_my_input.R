@@ -13,7 +13,7 @@
 # Checks performed:
 #    --platform        → Must be listed in manifest key file
 #    --assembly        → Must be listed in manifest key file
-#    --manifestkey     → Manifest key file ( defult : data/manifest.annotation.key.csv)
+#    --manifestkey     → Manifest key file ( default : data/manifest.annotation.key.csv)
 #    --idat_dir        → Directory must exist
 #    --metadatasheet   → File must exist and contain a Basename, Sample_ID, Plate, Well, Gender, Array, Slide
 #    --outdir          → Directory must exist
